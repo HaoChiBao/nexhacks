@@ -11,6 +11,12 @@ out/
 target/
 bin/
 obj/
+*.egg-info/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
 # Environment variables
 .env

@@ -1,0 +1,27 @@
+[project]
+name = "polymarket-portfolio-autopilot"
+version = "0.1.0"
+description = "Backend for Polymarket ETF-like portfolios"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pydantic-settings",
+    "langgraph",
+    "langchain-core",
+    "langchain-openai",
+    "httpx",
+    "python-dotenv",
+    "tavily-python",
+    "beautifulsoup4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
