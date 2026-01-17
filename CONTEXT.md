@@ -7,7 +7,6 @@ This project is a full-stack application consisting of a React client and an Exp
 
 ## Architecture
 The client communicates with the server via HTTP requests. Key configurations:
-- **CORS**: The server expects requests from the client (typically `http://localhost:5173` during dev) and has CORS enabled.
 - **Port**: Server runs on port 3000 (default). Client runs on Vite default (5173).
 
 ## Routes & Endpoints
