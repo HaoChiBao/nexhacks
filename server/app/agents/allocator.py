@@ -21,7 +21,7 @@ async def allocator_node(state: AgentState) -> AgentState:
     # Use keywords found in research or defaults
     keywords = research.keywords if research else pf.keywords
     markets = await fetch_markets(keywords=keywords, tags=pf.universe_filters.get("tag"))
-    print(f"--- [Allocator Node] 📉 Native API (Query+Firehose) found {len(markets)} matches")
+    print(f"--- [Allocator Node] 📉 Native API (Query + Merged Firehose) found {len(markets)} matches")
 
     # Fallback: Agentic Search if API fails
     if not markets and keywords:
@@ -74,8 +74,9 @@ async def allocator_node(state: AgentState) -> AgentState:
                 f"Market Questions to Evaluate: {market_questions}\n\n"
                 "Task: For EACH specific 'Question' in the list, determine:\n"
                 "1. **Side**: 'YES' or 'NO' based on the research?\n"
-                "2. **Reasoning**: A 1-sentence analysis specific to THAT question (e.g. why is this specific range/outcome likely or unlikely?).\n"
-                "Format: JSON Object { 'Exact Question String': { 'side': 'YES' or 'NO', 'reasoning': '...' } }\n"
+                "2. **Reasoning**: A 1-sentence analysis specific to THAT question.\n"
+                "3. **Confidence**: A score from 0-100 (int) representing conviction level.\n"
+                "Format: JSON Object { 'Exact Question String': { 'side': 'YES' or 'NO', 'reasoning': '...', 'confidence': 85 } }\n"
                 "IMPORTANT: The keys in JSON must match the 'Question' part exactly."
             )
             
@@ -85,7 +86,7 @@ async def allocator_node(state: AgentState) -> AgentState:
             import json
             raw_content = msg.content.replace("```json", "").replace("```", "").strip()
             event_rationales = json.loads(raw_content)
-            print(f"--- [Allocator Node] ✅ Generated reasoning & sides for {len(event_rationales)} questions.")
+            print(f"--- [Allocator Node] ✅ Generated reasoning, sides & confidence for {len(event_rationales)} questions.")
         except Exception as e:
             print(f"Error generating rationale: {e}")
 
