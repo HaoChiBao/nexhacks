@@ -27,8 +27,8 @@ async def research_node(state: AgentState) -> AgentState:
         results = await search_news(kw)
         evidence_items.extend(results)
     
-    # 2. Extract - Enrich the top 5 results with full text
-    limit = 5
+    # 2. Extract - Enrich the top 2 results with full text
+    limit = 2
     print(f"--- [Research Node] 📖 extracting full text from {min(len(evidence_items), limit)} articles...")
     for item in evidence_items[:limit]:
         if item.get("url"):
@@ -65,12 +65,56 @@ async def research_node(state: AgentState) -> AgentState:
         # We check simply if key indicates placeholder to avoid crashing if user hasn't set it yet
         # But we still run the code if it looks vaguely real or let it fail gracefully
         if "placeholder" not in os.getenv("OPENAI_API_KEY", "placeholder"):
-           # Using invoke, unlikely to need batch here for single request
+           # 3a. Initial Synthesis
+           print(f"--- [Research Node] 🤖 Synthesizing findings with LLM...")
            msg = await llm.ainvoke([
                SystemMessage(content=system_prompt), 
                HumanMessage(content=f"Portfolio: {pf.name}\nContext:\n{context}")
            ])
            summary_text = msg.content
+           
+           # 3b. Reflection & Loop (Max 1 retry)
+           print(f"--- [Research Node] 🤔 Reflecting on data sufficiency...")
+           reflection_prompt = (
+               "You are a research supervisor. Read the summary below and determine if there is CRITICAL missing information "
+               "needed to make an investment decision (e.g., missing specific dates, missing IPO valuation, missing election odds). "
+               "If yes, output 'MISSING: <search_query>'. If no, output 'SUFFICIENT'.\n"
+               f"Summary:\n{summary_text}"
+           )
+           reflection_msg = await llm.ainvoke([HumanMessage(content=reflection_prompt)])
+           reflection_content = reflection_msg.content.strip()
+           
+           if reflection_content.startswith("MISSING:"):
+                search_query = reflection_content.replace("MISSING:", "").strip()
+                print(f"--- [Research Node] 🔄 Gaps detected. Triggering follow-up search for: '{search_query}'")
+                
+                # Search 2
+                new_results = await search_news(search_query)
+                print(f"--- [Research Node] 📖 extracting full text from follow-up search...")
+                for item in new_results[:2]: # Limit 2 for follow-up
+                    if item.get("url"):
+                        c = await extract_article_content(item["url"])
+                        if c:
+                            item["content"] = c
+                            evidence_items.append(item)
+                
+                # Re-Synthesize
+                # Rebuild context with ALL evidence
+                context = ""
+                for item in evidence_items[:7]: # Top 7 now
+                    context += f"Source: {item.get('title', 'Unknown')}\n"
+                    context += f"URL: {item.get('url')}\n"
+                    context += f"Content: {item.get('content', item.get('content', 'No content'))[:500]}...\n\n"
+                
+                print(f"--- [Research Node] 🤖 Re-synthesizing with combined knowledge...")
+                msg = await llm.ainvoke([
+                    SystemMessage(content=system_prompt), 
+                    HumanMessage(content=f"Portfolio: {pf.name}\nContext:\n{context}")
+                ])
+                summary_text = msg.content
+           else:
+               print(f"--- [Research Node] ✅ Research deemed sufficient.")
+
         else:
             summary_text = (
                 f"Found {len(evidence_items)} articles. "
@@ -79,13 +123,14 @@ async def research_node(state: AgentState) -> AgentState:
             )
     except Exception as e:
         print(f"LLM Error: {e}")
-        summary_text = "Error generating summary."
+        summary_text = f"Error generating summary: {e}"
 
     result = ResearchResult(
         keywords=pf.keywords,
         risk_flags=["High Volatility", "Regulatory Uncertainty"], # In real production, LLM should extract these too
         evidence_items=evidence_items,
-        summary=summary_text
+        summary=summary_text,
+        needs_more_info=False # We resolved it or gave up
     )
     
     return {

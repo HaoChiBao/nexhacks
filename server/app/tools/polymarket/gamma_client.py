@@ -16,14 +16,13 @@ async def fetch_markets(
     """
     markets = []
     async with httpx.AsyncClient() as client:
-        # We'll try searching for each keyword or just the first one to keep it simple
-        # In a real app we might combine them or parallelize
+        # Strategy:
+        # 1. Try specific query first (cheap)
+        # 2. If 0 results, fetch "Firehose" (top 100 active events) and filter locally
+        
+        # Attempt 1: Specific Query
         query = " ".join(keywords)
-        params = {
-            "limit": limit,
-            "q": query,
-            "closed": "false"
-        }
+        params = {"limit": limit, "q": query, "closed": "false"}
         if tags:
             params["tag"] = tags
 
@@ -31,24 +30,40 @@ async def fetch_markets(
             resp = await client.get(f"{BASE_URL}/events", params=params)
             resp.raise_for_status()
             data = resp.json()
-            # Gamma returns a list of events. We need to extract markets.
-            # Simplified for this scaffold: just taking the first market of each event
-            # Gamma API search is fuzzy/broken, often returning trending items.
-            # We MUST filter client-side to ensure relevance.
-            for event in data:
-                slug = event.get("slug")
-                title = event.get("title")
-                if event.get("markets"):
-                    for m in event["markets"]:
-                        # Inject parent event slug and title
-                        m["event_slug"] = slug
-                        m["event_title"] = title
-                        
-                        # Client-side Relevance Check
-                        question_text = m.get("question", "").lower()
-                        # Check if ANY keyword matches
-                        if any(k.lower() in question_text for k in keywords):
-                            markets.append(m)
+            
+            # Helper to process events
+            def process_events(event_list):
+                found = []
+                for event in event_list:
+                    slug = event.get("slug")
+                    title = event.get("title")
+                    if event.get("markets"):
+                        for m in event["markets"]:
+                            m["event_slug"] = slug
+                            m["event_title"] = title
+                            
+                            # Strict Relevance Check
+                            # Check against both Event Title and Market Question
+                            text_corpus = (m.get("question", "") + " " + (title or "")).lower()
+                            if any(k.lower() in text_corpus for k in keywords):
+                                found.append(m)
+                return found
+
+            markets = process_events(data)
+            
+            # Attempt 2: Firehose if Attempt 1 failed
+            if not markets:
+                print(f"--- [Gamma Client] ⚠️ Query '{query}' returned 0 results. Switching to Firehose (Top 500)...")
+                # Fetch top 500 trending/active events
+                firehose_params = {"limit": 500, "closed": "false", "order": "volume24hr"}
+                if tags:
+                    firehose_params["tag"] = tags
+                
+                resp = await client.get(f"{BASE_URL}/events", params=firehose_params)
+                resp.raise_for_status()
+                firehose_data = resp.json()
+                markets = process_events(firehose_data)
+
         except Exception as e:
             print(f"Error fetching markets: {e}")
             return []

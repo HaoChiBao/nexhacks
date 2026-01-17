@@ -2,6 +2,9 @@ from app.graphs.state import AgentState
 from app.tools.polymarket.gamma_client import fetch_markets
 from app.tools.risk.constraints import filter_markets
 from app.tools.risk.sizing import create_allocation_plan
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
+import os
 
 async def allocator_node(state: AgentState) -> AgentState:
     """
@@ -18,7 +21,7 @@ async def allocator_node(state: AgentState) -> AgentState:
     # Use keywords found in research or defaults
     keywords = research.keywords if research else pf.keywords
     markets = await fetch_markets(keywords=keywords, tags=pf.universe_filters.get("tag"))
-    print(f"--- [Allocator Node] 📉 Found {len(markets)} raw markets from Polymarket API")
+    print(f"--- [Allocator Node] 📉 Native API (Query+Firehose) found {len(markets)} matches")
 
     # Fallback: Agentic Search if API fails
     if not markets and keywords:
@@ -54,8 +57,46 @@ async def allocator_node(state: AgentState) -> AgentState:
     valid_markets = filter_markets(markets, risk)
     print(f"--- [Allocator Node] ✅ {len(valid_markets)} markets passed liquidity/spread checks")
     
-    # 3. Size
-    plan = create_allocation_plan(valid_markets, state["bankroll"], risk)
+    # 3. Generate Agentic Reasoning (The "Why")
+    event_rationales = {}
+    if valid_markets and research and "placeholder" not in os.getenv("OPENAI_API_KEY", "placeholder"):
+        print(f"--- [Allocator Node] 🧠 Generating specific reasoning for selected markets...")
+        try:
+            # Extract unique Questions (to avoid duplicates if any, though ID is unique)
+            # We want to give the LLM context of the Event + Question
+            market_questions = [f"Event: {m.get('event_title', 'Unknown')} | Question: {m.get('question', 'Unknown')}" for m in valid_markets]
+            market_questions = list(set(market_questions))  # Dedupe
+
+            # Ask LLM to explain why these events align with the research AND choose a side
+            llm = ChatOpenAI(model="gpt-4o", temperature=0)
+            prompt = (
+                f"Research Summary:\n{research.summary[:2000]}\n\n"
+                f"Market Questions to Evaluate: {market_questions}\n\n"
+                "Task: For EACH specific 'Question' in the list, determine:\n"
+                "1. **Side**: 'YES' or 'NO' based on the research?\n"
+                "2. **Reasoning**: A 1-sentence analysis specific to THAT question (e.g. why is this specific range/outcome likely or unlikely?).\n"
+                "Format: JSON Object { 'Exact Question String': { 'side': 'YES' or 'NO', 'reasoning': '...' } }\n"
+                "IMPORTANT: The keys in JSON must match the 'Question' part exactly."
+            )
+            
+            msg = await llm.ainvoke([SystemMessage(content="You are a Portfolio Manager."), HumanMessage(content=prompt)])
+            
+            # Parse fake JSON (or use structured output in future) - for now, simple text parsing or hope for valid JSON
+            import json
+            raw_content = msg.content.replace("```json", "").replace("```", "").strip()
+            event_rationales = json.loads(raw_content)
+            print(f"--- [Allocator Node] ✅ Generated reasoning & sides for {len(event_rationales)} questions.")
+        except Exception as e:
+            print(f"Error generating rationale: {e}")
+
+    # 4. Size
+    plan = create_allocation_plan(
+        valid_markets, 
+        state["bankroll"], 
+        risk, 
+        research=state["research_output"],
+        event_rationales=event_rationales
+    )
     
     return {
         "allocation_plan": plan,

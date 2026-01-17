@@ -28,7 +28,12 @@ def format_recommendation(
                 url = f"https://polymarket.com/event/{t.market_slug}" if t.market_slug else "#"
                 # If outcome is YES/NO, make it clearer
                 outcome_str = t.outcome
-                lines.append(f"- **{t.weight*100:.1f}%** on [{t.market_id}]({url}) ({outcome_str})")
+                label = t.question if t.question else t.market_id
+                lines.append(f"- **{t.weight*100:.1f}%** on [{label}]({url}) ({outcome_str})")
+                if t.rationale:
+                    lines.append(f"  - 🤔 *Reasoning*: {t.rationale}")
+                if t.citation_url:
+                    lines.append(f"  - 🔗 *Source*: [{t.citation_url}]({t.citation_url})")
             lines.append("") # Spacer
     lines.append("### ⚠️ Risk Warnings")
     for w in plan.warnings:
