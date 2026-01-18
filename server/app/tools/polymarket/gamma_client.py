@@ -2,19 +2,121 @@ import httpx
 import os
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
 
 load_dotenv()
 BASE_URL = os.getenv("POLYMARKET_API_URL", "https://gamma-api.polymarket.com")
 
+# Tag IDs discovered via test_tags.py (Scanning 2000+ tags)
+KNOWN_TAGS = {
+    # Sports
+    "nba": "745",
+    "basketball": "100301", # Olympic/General
+    "sports": "1",
+    "nfl": "450",
+    "football": "102160", # NCAA/General
+    # Crypto
+    "crypto": "21",
+    "bitcoin": "235",
+    "ethereum": "39",
+    "solana": "818",
+    # Politics / World
+    "politics": "2", 
+    "election": "339",
+    "trump": "126",
+    "biden": "15",
+    "geopolitics": "100265",
+    "war": "79",
+    "ukraine": "103027",
+    "israel": "180",
+    "world": "101982",
+    # Business / Tech / Science
+    "business": "107",
+    "economics": "131", # Interest Rates
+    "interest rates": "131",
+    "tech": "1401",
+    "technology": "22",
+    "science": "74",
+    "space": "75",
+    "ai": "366", # World Affairs often captures AI, mostly broad
+    "climate": "87",
+    # Pop Culture
+    "movies": "53",
+    "music": "100",
+    "entertainment": "315",
+    "pop culture": "315",
+    # Gaming / Esports
+    "gaming": "36",
+    "esports": "36", # Map to gaming if no direct tag
+    "video games": "3",
+    "league of legends": "65",
+    "lol": "65",
+    "dota": "102366", # Dota 2
+    "dota 2": "102366",
+    "csgo": "100635",
+    "counter strike": "100635",
+    "cs2": "100780",
+    "counter strike 2": "100780",
+    "cod": "100230",
+    "call of duty": "100230",
+    "apex": "103126",
+    "apex legends": "103126",
+    "starcraft": "103064",
+    "valorant": "101672",
+    "overwatch": "102753"
+}
+
+async def resolve_semantic_tag(query: str, available_tags: List[str]) -> Optional[str]:
+    """
+    Uses LLM to find the best matching tag key for a query if exact match fails.
+    E.g. "Hoops" -> "Basketball", "FPS" -> "Gaming"
+    """
+    try:
+        # Quick check for very short queries
+        if not query or len(query) < 2:
+            return None
+            
+        print(f"--- [Gamma Client] 🧠 Semantic Match Check: '{query}'")
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        
+        tag_list_str = ", ".join(available_tags[:50]) # Use subset if too large, or categorized
+        # Actually our list is small enough (<100) to pass all
+        tag_list_str = ", ".join(available_tags)
+        
+        prompt = (
+            f"You are a routing assistant. Match the User Query to ONE of the Available Tags based on semantic meaning.\n"
+            f"User Query: '{query}'\n"
+            f"Available Tags: [{tag_list_str}]\n\n"
+            f"Rules:\n"
+            f"1. Return ONLY the exact tag string from the list that best matches.\n"
+            f"2. If there is no reasonable match (e.g. 'Nutrition' vs [Sports, Tech]), return 'None'.\n"
+            f"3. Be generous with categories (e.g. 'shooter game' -> 'gaming' or 'cod').\n"
+            f"Answer:"
+        )
+        
+        msg = await llm.ainvoke([HumanMessage(content=prompt)])
+        result = msg.content.strip().lower()
+        
+        if result and result != "none" and result in available_tags:
+            return result
+        return None
+        
+    except Exception as e:
+        print(f"Error in semantic tag resolution: {e}")
+        return None
+
 async def fetch_markets(
     keywords: List[str],
-    limit: int = 20,
+    limit: int = 100,
     tags: Optional[str] = None
 ) -> List[Dict]:
     """
     Fetch markets from Polymarket Gamma API based on keywords (query).
     """
-    print(f"--- [Gamma Client] 🔍 Searching with keywords: {keywords}")
+    primary_query = keywords[0] if keywords else ""
+    filter_keywords = keywords[1:] if len(keywords) > 1 else []
+    print(f"--- [Gamma Client] 🔍 Query: '{primary_query}' | Filter Keywords: {filter_keywords}")
     markets = []
     async with httpx.AsyncClient() as client:
         # Strategy:
@@ -22,10 +124,37 @@ async def fetch_markets(
         # 2. If 0 results, fetch "Firehose" (top 100 active events) and filter locally
         
         # Attempt 1: Specific Query
-        query = " ".join(keywords)
-        params = {"limit": limit, "q": query, "closed": "false"}
-        if tags:
-            params["tag"] = tags
+        # User Strategy: "Query for one word (Fund Name)... then filter by research"
+        # We assume keywords[0] is the Fund Name (via clarifier.py prepending)
+        query = keywords[0] if keywords else ""
+        
+        # Fallback if empty (shouldn't happen)
+        if not query and keywords:
+             query = " ".join(keywords)
+
+        # 1. Direct Lookup
+        tag_id_override = KNOWN_TAGS.get(keywords[0].lower()) if keywords else None
+
+        # 2. Semantic Fallback
+        if not tag_id_override and keywords and keywords[0]:
+            print(f"--- [Gamma Client] ❓ No direct match for '{keywords[0]}'. Attempting semantic resolution...")
+            match_key = await resolve_semantic_tag(keywords[0], list(KNOWN_TAGS.keys()))
+            if match_key:
+                tag_id_override = KNOWN_TAGS.get(match_key)
+                print(f"--- [Gamma Client] 🧠 Semantic Match Found: '{keywords[0]}' -> '{match_key}' (ID: {tag_id_override})")
+            else:
+                 print(f"--- [Gamma Client] ❌ No semantic match found for '{keywords[0]}'. Using raw text search.")
+        
+        params = {"limit": limit, "closed": "false"}
+        
+        if tag_id_override:
+             print(f"--- [Gamma Client] 🏷️  Auto-mapped '{keywords[0]}' to Tag ID: {tag_id_override}")
+             params["tag_id"] = tag_id_override
+        else:
+             params["q"] = query
+             
+        if tags and not tag_id_override:
+            params["tag_id"] = tags
 
         try:
             resp = await client.get(f"{BASE_URL}/events", params=params)
@@ -38,14 +167,20 @@ async def fetch_markets(
                 for event in event_list:
                     slug = event.get("slug")
                     title = event.get("title")
+                    
+                    # Extract tag labels for the corpus
+                    tag_labels = [t.get("label", "") for t in event.get("tags", [])]
+                    tag_text = " ".join(tag_labels)
+
                     if event.get("markets"):
                         for m in event["markets"]:
                             m["event_slug"] = slug
                             m["event_title"] = title
+                            m["event_tags"] = tag_text
                             
-                            # Strict Relevance Check
-                            # Check against Event Title, Market Question, AND Outcomes
-                            text_corpus = (m.get("question", "") + " " + (title or "")).lower()
+                            # Strict Relevance Check (Restored & Improved)
+                            # Check against Event Title, Market Question, Outcomes, AND Tag Labels
+                            text_corpus = (m.get("question", "") + " " + (title or "") + " " + tag_text).lower()
                             
                             # Also check outcomes field
                             outcomes_raw = m.get("outcomes", "")
@@ -61,8 +196,10 @@ async def fetch_markets(
                             
                             # Debug: print what we're checking
                             matched = any(k.lower() in text_corpus for k in keywords)
+                            # matched = True # Bypass removed
+                            
                             if matched:
-                                print(f"✅ MATCH: '{m.get('question')[:50]}' | Keywords: {keywords}")
+                                # print(f"✅ MATCH: '{m.get('question')[:50]}' | Keywords: {keywords}")
                                 found.append(m)
                 return found
 
@@ -104,36 +241,9 @@ async def fetch_markets(
         print(f"--- [Gamma Client] 🎯 Stratifying {len(markets)} markets across {len(keywords)} keywords...")
         keyword_buckets = {k: [] for k in keywords}
         
-        # Assign each market to its matching keyword bucket
-        for m in markets:
-            text_corpus = (m.get("question", "") + " " + m.get("event_title", "")).lower()
-            outcomes_raw = m.get("outcomes", "")
-            if isinstance(outcomes_raw, str):
-                try:
-                    import json
-                    outcomes = json.loads(outcomes_raw)
-                    text_corpus += " " + " ".join(outcomes).lower()
-                except:
-                    text_corpus += " " + outcomes_raw.lower()
-            elif isinstance(outcomes_raw, list):
-                text_corpus += " " + " ".join(str(o) for o in outcomes_raw).lower()
-            
-            # Find first matching keyword
-            for k in keywords:
-                if k.lower() in text_corpus:
-                    keyword_buckets[k].append(m)
-                    break
-        
-        # Sample evenly: take up to (100 / num_keywords) from each bucket
-        per_keyword_limit = 100 // len(keywords)
-        balanced_markets = []
-        for k, bucket in keyword_buckets.items():
-            sample = bucket[:per_keyword_limit]
-            balanced_markets.extend(sample)
-            print(f"  - {k}: {len(sample)} markets (from {len(bucket)} available)")
-        
-        markets = balanced_markets
-    elif len(markets) > 100:
+    # Stratified sampling REMOVED per user request for maximum volume
+    # Simply cap at 100 to avoid overloading downstream agents
+    if len(markets) > 100:
         print(f"--- [Gamma Client] ⚠️ Capping at 100 markets (found {len(markets)})")
         markets = markets[:100]
 

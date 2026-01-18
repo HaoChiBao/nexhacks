@@ -27,9 +27,10 @@ async def allocator_node(state: AgentState) -> AgentState:
     
     # 1. Fetch
     keywords = research.keywords if research else pf.keywords
-    logger.think(f"I need to find liquid markets for keywords: {keywords}. I will first query the Gamma API, and if insufficient, I will perform an agentic search.")
+    primary_query = keywords[0] if keywords else ""
+    logger.think(f"I need to find liquid markets for '{primary_query}'. I will query the Gamma API with this broad term.")
     
-    logger.tool_call("Polymarket Gamma API", f"q={keywords}, tags={pf.universe_filters.get('tag')}")
+    logger.tool_call("Polymarket Gamma API", f"q='{primary_query}', tags={pf.universe_filters.get('tag')}")
     markets = await fetch_markets(keywords=keywords, tags=pf.universe_filters.get("tag"))
     logger.tool_result("Polymarket Gamma API", f"Found {len(markets)} raw markets")
 

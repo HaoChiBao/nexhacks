@@ -17,6 +17,7 @@ async def extract_search_keywords(topic: str, description: str) -> list[str]:
         f"Context/Thesis: '{description}'\n\n"
         "Task: Extract 3-5 SPECIFIC, short search keywords to find relevant prediction markets.\n"
         "IMPORTANT: Keep keywords SIMPLE and search-friendly. Avoid formal suffixes like 'Inc.', 'Corp', 'Ltd'.\n"
+        "FORBIDDEN: Do NOT include generic terms like 'prediction', 'market', 'betting', 'odds', 'gambling'.\n"
         "Examples:\n"
         "- 'Apple Inc.' → 'Apple'\n"
         "- 'Toronto Raptors' → 'Raptors'\n"
@@ -36,4 +37,10 @@ async def extract_search_keywords(topic: str, description: str) -> list[str]:
     
     # Cleaning
     keywords = [k.strip().replace('"', '') for k in content.split(',')]
+    
+    # ALWAYS prepend the raw topic (Fund Name) to be the "Primary Query"
+    # deduplicate if needed
+    if topic not in keywords:
+        keywords.insert(0, topic)
+        
     return keywords
