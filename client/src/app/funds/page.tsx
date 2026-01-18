@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useFundStore } from "@/store/useFundStore";
 import { FundCard } from "@/components/funds/FundCard";
 import { CategoryNav } from "@/components/funds/CategoryNav";
+import { NewsTicker } from "@/components/dashboard/NewsTicker";
 import { Search, Grid, List, ChevronDown, ChevronUp, ChevronsUpDown, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -153,6 +154,11 @@ export default function ExploreFundsPage() {
             </button>
           </div>
         </div>
+      </div>
+      
+      {/* News Ticker */}
+      <div className="w-full rounded-lg border border-border-dark overflow-hidden shadow-lg shadow-black/40 mt-4 mb-2">
+          <NewsTicker />
       </div>
 
       {isLoading ? (
