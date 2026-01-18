@@ -11,14 +11,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const fetchProfile = async (userId: string) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', userId)
-        .single()
-      
-      if (data && !error) {
-        setBalance(Number(data.balance))
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('balance')
+          .eq('id', userId)
+          .single()
+        
+        if (error) {
+          if (error.code === 'PGRST116') {
+             // Profile doesn't exist (legacy user?), create it
+             console.log("No profile found, creating default profile...");
+             const { error: insertError } = await supabase
+                .from('profiles')
+                .insert([{ id: userId, balance: 10000.00, email: "user@example.com" }]) // Email is optional or placeholder
+             
+             if (!insertError) {
+                setBalance(10000.00)
+             }
+          } else {
+             console.error("Error fetching profile:", error)
+          }
+        } else if (data) {
+          setBalance(Number(data.balance))
+        }
+      } catch (e) {
+         console.error("Exception in fetchProfile", e)
       }
     }
 
