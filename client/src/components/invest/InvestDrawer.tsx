@@ -16,7 +16,9 @@ import { useFundStore } from "@/store/useFundStore"; // Use store instead
 import { cn, getInitials } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import * as Switch from "@radix-ui/react-switch";
-import { Info, Lock, Clock, TrendingUp, AlertTriangle, Loader2 } from "lucide-react";
+import { Info, Lock, Clock, TrendingUp, AlertTriangle, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import Confetti from 'react-confetti';
+import { useWindowSize } from 'react-use'; // Optional: for confetti size, or just default
 
 export function InvestDrawer() {
   const router = useRouter();
@@ -25,16 +27,32 @@ export function InvestDrawer() {
     closeInvestDrawer,
     selectedFundId,
     balance: appBalance, // Rename to distinguish
-    setBalance, // Use this if available, otherwise we assume balance is read-only from auth or needs a refresh action
+    setBalance, // Use this if available
     isLiveMode,
     addDeposit,
   } = useAppStore();
   const { user } = useAuthStore();
-  const { funds } = useFundStore(); // Get funds from store
+  const { funds } = useFundStore(); 
 
   const [amount, setAmount] = useState<number>(2500);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Modal State
+  const [transactionStatus, setTransactionStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Use window size for confetti if available, else full screen
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
 
   // If no fund, return null (should be handled by parent/state)
   const fund = funds.find((f) => f.id === selectedFundId);
@@ -43,6 +61,8 @@ export function InvestDrawer() {
     setAmount(2500);
     setAgreeTerms(false);
     setIsProcessing(false);
+    setTransactionStatus("idle");
+    setErrorMessage("");
   }, [investDrawerOpen, selectedFundId]);
 
   if (!fund) return null;
@@ -51,9 +71,20 @@ export function InvestDrawer() {
     if (!open) closeInvestDrawer();
   };
 
+  const parseError = (err: any): string => {
+      if (typeof err === 'string') return err;
+      if (err.detail) {
+          if (typeof err.detail === 'string') return err.detail;
+          if (Array.isArray(err.detail)) {
+              return err.detail.map((e: any) => e.msg || JSON.stringify(e)).join(", ");
+          }
+          return JSON.stringify(err.detail);
+      }
+      return err.message || JSON.stringify(err);
+  }
+
   const handleInvest = async () => {
     if (!user) {
-        // Redirect to login if called (though button should handle this)
         router.push('/login');
         closeInvestDrawer();
         return;
@@ -61,6 +92,7 @@ export function InvestDrawer() {
 
     if (!agreeTerms) return;
     setIsProcessing(true);
+    setTransactionStatus("idle");
 
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -70,7 +102,7 @@ export function InvestDrawer() {
             body: JSON.stringify({
                 fund_id: fund.id,
                 fund_name: fund.name,
-                fund_logo: fund.logo, // We pass it, backend saves it, though frontend might ignore it for initials
+                fund_logo: fund.logo, 
                 amount: amount,
                 user_id: user.id
             })
@@ -78,30 +110,31 @@ export function InvestDrawer() {
 
         if (!response.ok) {
             const err = await response.json();
-            throw new Error(err.detail || "Investment failed");
+            throw new Error(parseError(err));
         }
 
         const data = await response.json();
         
-        // Update local app state
-        // Assuming data.new_balance is returned
         if (data.new_balance !== undefined) {
-             // In a real app we'd update a dedicated user store, 
-             // but here we might use the mock action or simple re-fetch
-             addDeposit(-amount); // Update UI balance immediately
+             addDeposit(-amount); 
         }
 
-        alert(`Successfully invested $${amount} in ${fund.name}!`);
-        closeInvestDrawer();
+        setTransactionStatus("success");
 
     } catch (e: any) {
         console.error(e);
-        alert(`Investment failed: ${e.message}`);
+        setErrorMessage(parseError(e));
+        setTransactionStatus("error");
     } finally {
         setIsProcessing(false);
     }
   };
 
+  const handleResize = () => {
+    setTransactionStatus("idle");
+    setAmount(2500);
+  }
+  
   const handleLoginRedirect = () => {
      closeInvestDrawer();
      router.push('/login');
@@ -115,6 +148,60 @@ export function InvestDrawer() {
         className="w-full sm:max-w-lg bg-surface-dark border-border-dark text-white p-0 flex flex-col"
         side="right"
       >
+        {/* Confetti Overlay */}
+        {transactionStatus === "success" && (
+            <div className="fixed inset-0 z-50 pointer-events-none">
+                 <Confetti width={windowSize.width} height={windowSize.height} numberOfPieces={500} recycle={false} gravity={0.2} />
+            </div>
+        )}
+
+        {/* Transaction Result Modal Overlay (Absolute within Sheet) */}
+        {transactionStatus !== "idle" && (
+            <div className="absolute inset-0 z-40 bg-surface-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
+                {transactionStatus === "success" ? (
+                    <div className="space-y-6">
+                        <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-emerald-500/10">
+                            <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+                        </div>
+                        <h2 className="text-3xl font-bold text-white tracking-tight">Congratulations!</h2>
+                        <p className="text-gray-400 max-w-xs mx-auto">
+                            You successfully invested <span className="text-white font-mono font-bold">${amount}</span> in <span className="text-white font-bold">{fund.name}</span>.
+                        </p>
+                        <button 
+                            onClick={closeInvestDrawer}
+                            className="bg-primary hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 w-full max-w-xs"
+                        >
+                            Return to Portfolio
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                         <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-red-500/10">
+                            <XCircle className="w-12 h-12 text-red-500" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Investment Failed</h2>
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-sm text-red-200 font-mono text-left max-h-40 overflow-y-auto w-full custom-scroll">
+                            {typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)}
+                        </div>
+                        <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
+                            <button 
+                                onClick={() => setTransactionStatus("idle")}
+                                className="bg-surface-hover hover:bg-surface-active text-white font-medium py-3 px-8 rounded-xl border border-white/10 transition-colors"
+                            >
+                                Try Again
+                            </button>
+                            <button 
+                                onClick={closeInvestDrawer}
+                                className="text-gray-500 hover:text-gray-300 text-sm py-2"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
+
         {/* Decorative Background */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
 
