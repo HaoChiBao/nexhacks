@@ -145,23 +145,34 @@ def create_allocation_plan(
                 p["confidence_score"] = 1.0
 
     # Instead of equal weight, we scale weights by confidence_score
-    total_confidence = sum(p["confidence_score"] for p in final_picks)
-    if total_confidence <= 0:
-        return AllocationPlan(targets=[], trades=[], warnings=["Total confidence was zero."])
-
-    # We want to fill up to bankroll, but respect max_position_pct
-    # Target total exposure (can be < 1.0 if few picks)
-    count = len(final_picks)
-    max_total_exposure = min(1.0, count * risk.max_position_pct)
+    score_sum = sum(p["confidence_score"] for p in final_picks)
     
-    # Calculate raw weights based on confidence
-    for pick in final_picks:
-        # Normalized weight: (conf / total_conf) * max_total_exposure
-        raw_conf_weight = (pick["confidence_score"] / total_confidence) * max_total_exposure
-        # Apply per-position cap
-        pick["final_weight"] = min(raw_conf_weight, risk.max_position_pct)
-    
+    if score_sum <= 0:
+        # Fallback to equal weighting if scores are all zero (shouldn't happen with normalization 0-1 unless all min)
+        # Actually min-max with all same gives 1.0.
+        # If we have single item max=min, we gave it 1.0.
+        # just safely handle 0
+        for p in final_picks:
+            p["final_weight"] = 1.0 / len(final_picks)
+    else:
+        # Normalize strictly to 1.0 (100%)
+        # weight = score / score_sum
+        cumulative_weight = 0.0
+        for i, pick in enumerate(final_picks):
+            # Calculate raw share
+            share = pick["confidence_score"] / score_sum
+            
+            # For the last item, take the remainder to ensure exact 1.0
+            if i == len(final_picks) - 1:
+                weight = 1.0 - cumulative_weight
+            else:
+                weight = share
+                
+            pick["final_weight"] = weight
+            cumulative_weight += weight
+            
     # Final Pass to build plan
+    total_alloc_usd = 0.0
     for pick in final_picks:
         m = pick["market"]
         weight = pick["final_weight"]
@@ -186,7 +197,7 @@ def create_allocation_plan(
             outcome=pick["outcome"],
             side="BUY", 
             amount_usd=target_usd,
-            reason=f"Confidence-weighted allocation ({pick['confidence']}%)"
+            reason=f"Agent-determined weighting ({weight*100:.1f}% alloc based on {pick['confidence']}% confid.)"
         ))
         
         total_alloc_usd += target_usd
@@ -194,5 +205,5 @@ def create_allocation_plan(
     return AllocationPlan(
         targets=targets,
         trades=trades,
-        warnings=[f"Confidence-weighted allocation complete. Allocated ${total_alloc_usd:.2f} across {len(final_picks)} events."]
+        warnings=[f"Agent-driven allocation complete. Allocated 100% of bankroll (${total_alloc_usd:.2f}) across {len(final_picks)} events."]
     )
