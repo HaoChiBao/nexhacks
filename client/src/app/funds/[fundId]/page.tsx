@@ -33,9 +33,9 @@ export default function FundDetailPage() {
             </nav>
             <div className="flex items-center gap-4">
               <h1 className="text-3xl font-bold text-white tracking-tight">{fund.name}</h1>
-              <span className={cn("px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border", fund.status === 'Live' ? "bg-primary/10 text-primary border-primary/20" : "bg-yellow-900/30 text-yellow-400 border-yellow-800")}>
-                {fund.status}
-              </span>
+            </div>
+            <div className="text-sm text-gray-400 font-medium">
+                Created by <span className="text-gray-200">{fund.createdBy}</span>
             </div>
             <p className="text-gray-400 max-w-2xl text-sm leading-relaxed">
               {fund.thesis}. {fund.secondaryThesis}

@@ -1,14 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { funds } from "@/lib/data/funds";
+import { useState, useEffect } from "react";
+// import { funds } from "@/lib/data/funds"; // Removed static import
+import { useFundStore } from "@/store/useFundStore";
 import { FundCard } from "@/components/funds/FundCard";
-import { Search, Grid, List, ChevronDown, Plus } from "lucide-react";
+import { Search, Grid, List, ChevronDown, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function ExploreFundsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  const { funds, fetchFunds, isLoading } = useFundStore();
+
+  useEffect(() => {
+    fetchFunds();
+  }, [fetchFunds]);
 
   const filteredFunds = funds.filter(
     (f) =>
@@ -100,27 +107,33 @@ export default function ExploreFundsPage() {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className={cn("grid gap-6 mb-12", viewMode === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1")}>
-        {filteredFunds.map((fund) => (
-          <FundCard key={fund.id} fund={fund} />
-        ))}
-         
-         {/* Create Fund Card (Stub) */}
-         <div className="group relative flex flex-col justify-center items-center h-full min-h-[400px] bg-transparent border-2 border-dashed border-gray-700 rounded-2xl hover:border-primary hover:bg-surface-dark/50 transition-all duration-300 cursor-pointer">
-            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                <Plus className="w-10 h-10 text-primary" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Create Your Own Fund</h3>
-            <p className="text-gray-400 text-center max-w-xs px-4 mb-6">
-                Have a winning strategy? Launch a prediction fund and earn performance fees.
-            </p>
-            <button className="px-6 py-2 rounded-lg border border-primary text-primary font-semibold hover:bg-primary hover:text-white transition-colors">
-                Start Application
-            </button>
+      {isLoading ? (
+         <div className="min-h-[400px] flex flex-col items-center justify-center">
+            <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+            <p className="text-gray-400">Loading funds from Supabase...</p>
+         </div>
+      ) : (
+        /* Grid */
+        <div className={cn("grid gap-6 mb-12", viewMode === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1")}>
+          {filteredFunds.map((fund) => (
+            <FundCard key={fund.id} fund={fund} />
+          ))}
+           
+           {/* Create Fund Card (Stub) */}
+           <div className="group relative flex flex-col justify-center items-center h-full min-h-[400px] bg-transparent border-2 border-dashed border-gray-700 rounded-2xl hover:border-primary hover:bg-surface-dark/50 transition-all duration-300 cursor-pointer">
+              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Plus className="w-10 h-10 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Create Your Own Fund</h3>
+              <p className="text-gray-400 text-center max-w-xs px-4 mb-6">
+                  Have a winning strategy? Launch a prediction fund and earn performance fees.
+              </p>
+              <button className="px-6 py-2 rounded-lg border border-primary text-primary font-semibold hover:bg-primary hover:text-white transition-colors">
+                  Start Application
+              </button>
+          </div>
         </div>
-
-      </div>
+      )}
     </div>
   );
 }

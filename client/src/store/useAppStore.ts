@@ -12,6 +12,7 @@ interface AppState {
   closeInvestDrawer: () => void;
   balance: number;
   addDeposit: (amount: number) => void;
+  setBalance: (amount: number) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -27,6 +28,7 @@ export const useAppStore = create<AppState>()(
       closeInvestDrawer: () => set({ investDrawerOpen: false, selectedFundId: null }),
       balance: 12450.00,
       addDeposit: (amount) => set((state) => ({ balance: state.balance + amount })), // Mock calculation
+      setBalance: (amount) => set({ balance: amount }),
     }),
     {
       name: 'printmoney-storage',
