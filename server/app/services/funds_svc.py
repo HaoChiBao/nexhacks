@@ -116,8 +116,37 @@ def generate_unique_fund_id(supabase: Client) -> str:
     raise Exception("Failed to generate unique fund ID after 5 attempts")
 
 def create_fund_draft(supabase: Client, fund_data: Dict[str, Any]) -> str:
-    """Inserts the initial fund draft into Supabase."""
+    """Inserts the initial fund draft into Supabase (funds and user_funds)."""
+    
+    # 1. Insert into Public Funds Table
     response = supabase.table("funds").insert(fund_data).execute()
+    
+    # 2. Insert into User Funds Table (if owner exists)
+    # This satisfies the requirement to populate user_funds for tracking created strategies.
+    owner_id = fund_data.get("owner_id")
+    if owner_id:
+        try:
+            user_fund_payload = {
+                "user_id": owner_id,
+                "name": fund_data["name"],
+                "description": fund_data.get("description", ""),
+                "allocation_plan": {
+                    "holdings": fund_data.get("holdings", []),
+                    "thesis": fund_data.get("thesis", ""),
+                    "metrics": {
+                        "sharpe": fund_data.get("sharpe"),
+                        "aum": fund_data.get("aum")
+                    }
+                },
+                "is_public": True,
+                # 'id' is auto-generated UUID
+            }
+            supabase.table("user_funds").insert(user_fund_payload).execute()
+            print(f"Successfully synced fund {fund_data['id']} to user_funds table for user {owner_id}")
+        except Exception as e:
+            print(f"Warning: Failed to insert into user_funds: {e}")
+            # Do not fail the main public fund creation
+            
     # supabase-py v2 returns response with .data on success
     return fund_data["id"]
 
