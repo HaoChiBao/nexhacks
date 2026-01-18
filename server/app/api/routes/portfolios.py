@@ -59,30 +59,34 @@ def invest_in_fund(req: InvestRequest):
             portfolio = {"funds": []}
         elif isinstance(raw_portfolio, list):
             portfolio = {"funds": raw_portfolio}
-        else:
+        elif isinstance(raw_portfolio, dict):
             portfolio = raw_portfolio
+        else:
+            # Fallback for unexpected types
+            portfolio = {"funds": []}
 
         funds = portfolio.get("funds", [])
-        if funds is None:
-             funds = []
+        if not isinstance(funds, list):
+            funds = []
         
         # Check if already invested
-        existing_idx = next((i for i, f in enumerate(funds) if f["id"] == req.fund_id), -1)
+        # Use .get("id") to safer access in case of malformed data in DB
+        existing_idx = next((i for i, f in enumerate(funds) if isinstance(f, dict) and f.get("id") == req.fund_id), -1)
         
         if existing_idx >= 0:
             # Update existing position
-            funds[existing_idx]["invested_amount"] += req.amount
-            funds[existing_idx]["current_value"] += req.amount # Simplified: assume 1:1 for now
+            funds[existing_idx]["invested_amount"] = funds[existing_idx].get("invested_amount", 0) + req.amount
+            funds[existing_idx]["current_value"] = funds[existing_idx].get("current_value", 0) + req.amount # Simplified
         else:
             # Add new position
             funds.append({
                 "id": req.fund_id,
                 "name": req.fund_name,
-                "logo": req.fund_logo or "", # Ensure string
+                "logo": req.fund_logo or "", 
                 "invested_amount": req.amount,
                 "current_value": req.amount,
-                "shares": req.amount / 10.0, # Mock NAV 10
-                "invested_at": "Today" # simple string for now
+                "shares": req.amount / 10.0, 
+                "invested_at": "Today" 
             })
             
         portfolio["funds"] = funds
