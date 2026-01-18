@@ -41,7 +41,19 @@ class FundPublishRequest(BaseModel):
     report_markdown: Optional[str] = None
     proposal_json: Optional[Dict] = None
     report_pdf: Optional[str] = None
+    proposal_json: Optional[Dict] = None
+    report_pdf: Optional[str] = None
     categories: List[str] = []
+
+@router.get("")
+def get_all_funds():
+    """Fetch all funds from the database."""
+    try:
+        supabase = get_supabase()
+        res = supabase.table("funds").select("*").execute()
+        return res.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("")
 async def publish_fund(fund: FundPublishRequest):

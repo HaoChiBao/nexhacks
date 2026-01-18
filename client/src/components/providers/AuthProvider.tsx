@@ -11,29 +11,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const fetchProfile = async (userId: string) => {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('balance')
-          .eq('id', userId)
-          .single()
-        
-        if (error) {
-          if (error.code === 'PGRST116') {
-             // Profile doesn't exist (legacy user?), create it
-             console.log("No profile found, creating default profile...");
-             const { error: insertError } = await supabase
-                .from('profiles')
-                .insert([{ id: userId, balance: 10000.00, email: "user@example.com" }]) // Email is optional or placeholder
-             
-             if (!insertError) {
-                setBalance(10000.00)
-             }
-          } else {
-             console.error("Error fetching profile:", error)
-          }
-        } else if (data) {
-          setBalance(Number(data.balance))
+        const res = await fetch(`${API_URL}/users/${userId}/profile`)
+        if (res.ok) {
+           const data = await res.json()
+           if (data) {
+             setBalance(Number(data.balance))
+           }
+        } else {
+           console.error(`Failed to fetch profile: ${res.status} ${res.statusText}`)
+           if (res.status === 404) {
+               // Optional: Trigger profile creation via another endpoint if needed, 
+               // but for now we just log as per "pulling" migration task.
+               console.log("Profile not found on backend.")
+           }
         }
       } catch (e) {
          console.error("Exception in fetchProfile", e)

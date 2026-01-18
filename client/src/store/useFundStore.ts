@@ -22,23 +22,18 @@ export const useFundStore = create<FundState>((set, get) => ({
       return;
     }
 
-    console.log("Fetching funds from Supabase...");
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    console.log("Fetching funds from Backend API...");
     set({ isLoading: true, error: null })
     try {
-      const { data, error } = await supabase
-        .from('funds')
-        .select('*')
+      const res = await fetch(`${API_URL}/funds`)
       
-      if (error) {
-        console.error("Supabase error fetching funds:", error);
-        throw error
+      if (!res.ok) {
+         throw new Error(`API Error: ${res.statusText}`)
       }
 
-      if (!data) {
-        throw new Error("No data returned from Supabase");
-      }
-
-      console.log(`Successfully fetched ${data.length} funds.`);
+      const data = await res.json()
+      console.log(`Successfully fetched ${data.length} funds from API.`);
 
       // Map DB snake_case to camelCase if necessary, or ensure DB columns match interface.
       // SQL schema uses snake_case for some columns: returns_month, returns_inception, liquidity_score etc.
