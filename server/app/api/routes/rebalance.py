@@ -13,7 +13,7 @@ async def run_rebalance(req: RebalanceRequest):
         pf = PortfolioDefinition(
             id="dynamic",
             name=f"Dynamic Fund: {req.topic}",
-            description=f"Auto-generated fund for {req.topic}",
+            description=req.description or f"Auto-generated fund for {req.topic}",
             keywords=[req.topic],
             universe_filters={"closed": False},
             default_risk=RiskLimits(
@@ -24,6 +24,8 @@ async def run_rebalance(req: RebalanceRequest):
         )
     elif req.portfolio_id:
         pf = registry.get(req.portfolio_id)
+        if pf and req.description:
+            pf.description = req.description
     
     if not pf:
         raise HTTPException(status_code=404, detail="Portfolio not found or topic missing")
@@ -31,7 +33,8 @@ async def run_rebalance(req: RebalanceRequest):
     # 2. Init State
     initial_state = {
         "portfolio": pf,
-        "bankroll": req.bankroll,
+        "bankroll": 100.0, # Default bankroll for logic
+
         "user_id": req.user_id,
         "research_completed": False,
         "research_output": None,

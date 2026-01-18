@@ -38,6 +38,9 @@ class TargetAllocation(BaseModel):
     weight: float
     rationale: str
     citation_url: Optional[str] = None
+    volume_usd: Optional[float] = 0.0
+    liquidity_usd: Optional[float] = 0.0
+    last_price: Optional[float] = 0.0
 
 class AllocationPlan(BaseModel):
     targets: List[TargetAllocation]
@@ -47,7 +50,7 @@ class AllocationPlan(BaseModel):
 class RebalanceRequest(BaseModel):
     portfolio_id: Optional[str] = None
     topic: Optional[str] = None
-    bankroll: float
+    description: Optional[str] = None
     user_id: Optional[str] = "default_user"
 
 class RebalanceResponse(BaseModel):

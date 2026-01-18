@@ -69,7 +69,7 @@ async def research_node(state: AgentState) -> AgentState:
            print(f"--- [Research Node] 🤖 Synthesizing findings with LLM...")
            msg = await llm.ainvoke([
                SystemMessage(content=system_prompt), 
-               HumanMessage(content=f"Portfolio: {pf.name}\nContext:\n{context}")
+               HumanMessage(content=f"Portfolio: {pf.name}\nDescription/Context: {pf.description}\nContext:\n{context}")
            ])
            summary_text = msg.content
            

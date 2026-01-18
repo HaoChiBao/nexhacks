@@ -1,7 +1,17 @@
 from fastapi import FastAPI
 from app.api.routes import health, portfolios, rebalance
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Polymarket Portfolio Autopilot")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow all origins for dev
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(health.router, prefix="/health", tags=["system"])
 app.include_router(portfolios.router, prefix="/portfolios", tags=["portfolios"])

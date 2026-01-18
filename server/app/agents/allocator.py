@@ -70,10 +70,12 @@ async def allocator_node(state: AgentState) -> AgentState:
             # Ask LLM to explain why these events align with the research AND choose a side
             llm = ChatOpenAI(model="gpt-4o", temperature=0)
             prompt = (
+                f"Topic: {pf.name}\n"
+                f"Fund Description: {pf.description}\n"
                 f"Research Summary:\n{research.summary[:2000]}\n\n"
                 f"Market Questions to Evaluate: {market_questions}\n\n"
                 "Task: For EACH specific 'Question' in the list, determine:\n"
-                "1. **Side**: 'YES' or 'NO' based on the research?\n"
+                "1. **Side**: 'YES' if likely to happen, 'NO' if unlikely (e.g. if research says they will lose). Do NOT hesitate to vote 'NO'.\n"
                 "2. **Reasoning**: A 1-sentence analysis specific to THAT question.\n"
                 "3. **Confidence**: A score from 0-100 (int) representing conviction level.\n"
                 "Format: JSON Object { 'Exact Question String': { 'side': 'YES' or 'NO', 'reasoning': '...', 'confidence': 85 } }\n"

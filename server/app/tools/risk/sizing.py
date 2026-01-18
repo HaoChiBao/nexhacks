@@ -1,6 +1,43 @@
 from typing import List, Dict
 from app.schemas.portfolio import RiskLimits, AllocationPlan, TargetAllocation, Trade
 
+def get_outcome_price(market: Dict, outcome_label: str) -> float:
+    """Helper to find price for a specific outcome label (YES/NO/Team Name)"""
+    try:
+        # 1. Parse outcomePrices (often a JSON list of strings '["0.5", "0.6"]')
+        import json
+        raw_prices = market.get("outcomePrices")
+        if isinstance(raw_prices, str):
+            prices = json.loads(raw_prices)
+        else:
+            prices = raw_prices or []
+            
+        # 2. Parse outcomes (labels)
+        raw_outcomes = market.get("outcomes")
+        if isinstance(raw_outcomes, str):
+            outcomes = json.loads(raw_outcomes)
+        else:
+            outcomes = raw_outcomes or ["No", "Yes"] # Default binary
+            
+        # 3. Match label to index
+        # Normalize: 'YES' -> 'Yes', 'NO' -> 'No'
+        normalized_label = outcome_label.title() # 'Yes' or 'No' usually
+        
+        index = -1
+        if normalized_label in outcomes:
+            index = outcomes.index(normalized_label)
+        elif outcome_label in outcomes: # Try raw (e.g. Trump)
+            index = outcomes.index(outcome_label)
+            
+        # 4. Return price
+        if index != -1 and index < len(prices):
+            return float(prices[index]) * 100 # Convert 0.55 to 55 cents
+            
+    except Exception as e:
+        print(f"Error parsing price for {outcome_label}: {e}")
+        
+    return 0.0
+
 def create_allocation_plan(
     markets: List[Dict], 
     bankroll: float, 
@@ -105,7 +142,10 @@ def create_allocation_plan(
             outcome=pick["outcome"],
             weight=weight,
             rationale=pick["rationale"] + f" (Confidence: {pick['confidence']}%)",
-            citation_url=pick["citation"]
+            citation_url=pick["citation"],
+            volume_usd=float(m.get("volume", 0)),
+            liquidity_usd=float(m.get("liquidity", 0)),
+            last_price=get_outcome_price(m, pick["outcome"])
         ))
         
         trades.append(Trade(
