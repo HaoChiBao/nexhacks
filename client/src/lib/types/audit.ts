@@ -1,10 +1,11 @@
-export type AuditEventType = 
-  | "Rebalance" 
-  | "Market Resolution" 
-  | "Parameter Update" 
-  | "Proposal Rejected" 
-  | "Proposal Approved" 
-  | "Agent Research" 
+export type AuditEventType =
+  | "Rebalance"
+  | "Market Resolution"
+  | "Parameter Update"
+  | "Proposal Rejected"
+  | "Proposal Approved"
+  | "Agent Research"
+  | "Research Agent"
   | "Execution";
 
 export interface AuditEvent {

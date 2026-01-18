@@ -18,6 +18,7 @@ const EVENT_TYPE_STYLES: Record<string, string> = {
   "Proposal Approved": "bg-green-500/10 text-green-400 border-green-500/20",
   "Execution": "bg-purple-500/10 text-purple-400 border-purple-500/20",
   "Agent Research": "bg-gray-500/10 text-gray-400 border-gray-500/20",
+  "Research Agent": "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
 };
 
 export function AuditTrailTable({ events, total, page, onPageChange, onExport }: AuditTrailTableProps) {
@@ -26,13 +27,13 @@ export function AuditTrailTable({ events, total, page, onPageChange, onExport }:
       {/* Table Header / Toolbar */}
       <div className="p-4 border-b border-border-dark flex justify-between items-center">
         <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-gray-500"></span>
-                Immutable Audit Trail
-            </h3>
+          <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+            Immutable Audit Trail
+          </h3>
         </div>
         <div className="text-xs text-gray-500 font-mono">
-            Last Synced block: <span className="text-emerald-500">18,241,002</span>
+          Last Synced block: <span className="text-emerald-500">18,241,002</span>
         </div>
       </div>
 
@@ -44,7 +45,6 @@ export function AuditTrailTable({ events, total, page, onPageChange, onExport }:
               <th className="px-6 py-3 font-semibold">Timestamp (UTC)</th>
               <th className="px-6 py-3 font-semibold">Event Type</th>
               <th className="px-6 py-3 font-semibold">Description</th>
-              <th className="px-6 py-3 font-semibold">Initiator</th>
               <th className="px-6 py-3 font-semibold">Impact</th>
               <th className="px-6 py-3 font-semibold text-right">Status / Hash</th>
             </tr>
@@ -63,33 +63,21 @@ export function AuditTrailTable({ events, total, page, onPageChange, onExport }:
                 <td className="px-6 py-4 font-medium max-w-xs truncate" title={event.description}>
                   {event.description}
                 </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    {event.initiator.avatarUrl ? (
-                         <div className={cn("w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold", event.initiator.kind === 'agent' ? "bg-purple-600 text-white" : "bg-gray-700 text-gray-300")}>
-                             {event.initiator.avatarUrl === "AI" ? "AI" : event.initiator.name[0]}
-                         </div>
-                    ) : (
-                        <div className="w-5 h-5 rounded-full bg-gray-700"></div>
-                    )}
-                    <span>{event.initiator.name}</span>
-                  </div>
-                </td>
                 <td className="px-6 py-4 font-mono">
-                    <span className={cn(
-                        event.impact.label?.startsWith("+") ? "text-emerald-400" : 
-                        event.impact.label?.startsWith("-") || event.impact.label?.includes("Vol: -") ? "text-gray-300" : "text-gray-500"
-                    )}>
-                        {event.impact.label}
-                    </span>
+                  <span className={cn(
+                    event.impact.label?.startsWith("+") ? "text-emerald-400" :
+                      event.impact.label?.startsWith("-") || event.impact.label?.includes("Vol: -") ? "text-gray-300" : "text-gray-500"
+                  )}>
+                    {event.impact.label}
+                  </span>
                 </td>
                 <td className="px-6 py-4 text-right font-mono text-[10px]">
                   {event.status.kind === "offchain" ? (
-                      <span className="text-gray-500 italic">{event.status.hashOrNote}</span>
+                    <span className="text-gray-500 italic">{event.status.hashOrNote}</span>
                   ) : (
-                      <span className="text-emerald-500 hover:underline cursor-pointer">
-                        {event.status.hashOrNote}
-                      </span>
+                    <span className="text-emerald-500 hover:underline cursor-pointer">
+                      {event.status.hashOrNote}
+                    </span>
                   )}
                 </td>
               </tr>
@@ -101,23 +89,23 @@ export function AuditTrailTable({ events, total, page, onPageChange, onExport }:
       {/* Footer */}
       <div className="p-4 border-t border-border-dark flex justify-between items-center text-xs text-gray-500">
         <div>
-            Showing <span className="text-gray-300">{(page - 1) * 10 + 1}-{Math.min(page * 10, total)}</span> of {total} events
+          Showing <span className="text-gray-300">{(page - 1) * 10 + 1}-{Math.min(page * 10, total)}</span> of {total} events
         </div>
         <div className="flex gap-2">
-            <button 
-                onClick={() => onPageChange(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="p-1 rounded hover:bg-gray-800 disabled:opacity-50"
-            >
-                <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button 
-                onClick={() => onPageChange(page + 1)}
-                 disabled={page * 10 >= total}
-                className="p-1 rounded hover:bg-gray-800 disabled:opacity-50"
-            >
-                <ChevronRight className="w-4 h-4" />
-            </button>
+          <button
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+            disabled={page === 1}
+            className="p-1 rounded hover:bg-gray-800 disabled:opacity-50"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onPageChange(page + 1)}
+            disabled={page * 10 >= total}
+            className="p-1 rounded hover:bg-gray-800 disabled:opacity-50"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
