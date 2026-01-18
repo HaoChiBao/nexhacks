@@ -1,4 +1,6 @@
-import { Link, Bookmark } from "lucide-react";
+"use client";
+
+import { Bookmark } from "lucide-react";
 import { Fund } from "@/lib/data/funds";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";

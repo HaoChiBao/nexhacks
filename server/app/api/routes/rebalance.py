@@ -28,9 +28,9 @@ async def run_rebalance(req: RebalanceRequest):
             universe_filters={"closed": False},
             default_risk=RiskLimits(
                 max_position_pct=0.20,
-                min_liquidity_usd=1000, 
+                min_liquidity_usd=100, 
                 min_volume_usd=0, 
-                max_spread_pct=0.05
+                max_spread_pct=0.15
             )
         )
     elif req.portfolio_id:
