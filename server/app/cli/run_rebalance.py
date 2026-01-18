@@ -16,44 +16,20 @@ async def main():
     
     args = parser.parse_args()
     
-    final_topic = args.topic # Default to arg, will be updated if refined
     pf = None
     if args.topic:
-        # Questioning Agent Loop
-        # Validates uniqueness/ambiguity of the topic
-        from app.agents.clarifier import review_topic, refine_topic
+        # Extract keywords and create ephemeral portfolio
+        from app.agents.clarifier import extract_search_keywords
         
-        current_topic = args.topic
-        print(f"--- [Questioning Agent] Reviewing topic: '{current_topic}'...")
-        
-        while True:
-            # 1. Review
-            result = await review_topic(current_topic)
-            
-            if result["status"] == "CLEAR":
-                if current_topic != args.topic:
-                    print(f"--- [Questioning Agent] ✅ Topic refined to: '{current_topic}'")
-                else:
-                    print(f"--- [Questioning Agent] ✅ Topic '{current_topic}' is clear.")
-                break
-            
-            # 2. Ambiguous -> Ask User
-            print(f"--- [Questioning Agent] 🕵️ Ambiguity Detected: {result['message']}")
-            user_response = input(f"--- [You] Clarify '{current_topic}' > ")
-            
-            # 3. Refine
-            print(f"--- [Questioning Agent] Refining...")
-            current_topic = await refine_topic(current_topic, user_response)
-        
-        # Use the refined topic
-        final_topic = current_topic
+        keywords = await extract_search_keywords(args.topic, "")
+        print(f"--- [Planner] 🎯 Extracted keywords: {keywords}")
         
         # Create ephemeral portfolio on the fly
         pf = PortfolioDefinition(
             id="dynamic",
-            name=f"Dynamic Fund: {final_topic}",
-            description=f"Auto-generated fund for {final_topic}",
-            keywords=[final_topic],
+            name=f"Dynamic Fund: {args.topic}",
+            description=f"Auto-generated fund for {args.topic}",
+            keywords=keywords,
             universe_filters={"closed": False}, # No specific tag filter for dynamic
             default_risk=RiskLimits(
                 max_position_pct=0.20,  # Reverted: Safety cap (max 20% per bet)
@@ -109,7 +85,7 @@ async def main():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Clean topic for filename
-        safe_topic = (final_topic or args.portfolio).replace(" ", "_").lower()
+        safe_topic = (args.topic or args.portfolio).replace(" ", "_").lower()
         filename = f"polymarket_report_{safe_topic}_{timestamp}.md"
         file_path = os.path.join(downloads_dir, filename)
         

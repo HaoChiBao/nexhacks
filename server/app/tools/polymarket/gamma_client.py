@@ -14,6 +14,7 @@ async def fetch_markets(
     """
     Fetch markets from Polymarket Gamma API based on keywords (query).
     """
+    print(f"--- [Gamma Client] 🔍 Searching with keywords: {keywords}")
     markets = []
     async with httpx.AsyncClient() as client:
         # Strategy:
@@ -43,18 +44,35 @@ async def fetch_markets(
                             m["event_title"] = title
                             
                             # Strict Relevance Check
-                            # Check against both Event Title and Market Question
+                            # Check against Event Title, Market Question, AND Outcomes
                             text_corpus = (m.get("question", "") + " " + (title or "")).lower()
-                            if any(k.lower() in text_corpus for k in keywords):
+                            
+                            # Also check outcomes field
+                            outcomes_raw = m.get("outcomes", "")
+                            if isinstance(outcomes_raw, str):
+                                try:
+                                    import json
+                                    outcomes = json.loads(outcomes_raw)
+                                    text_corpus += " " + " ".join(outcomes).lower()
+                                except:
+                                    text_corpus += " " + outcomes_raw.lower()
+                            elif isinstance(outcomes_raw, list):
+                                text_corpus += " " + " ".join(str(o) for o in outcomes_raw).lower()
+                            
+                            # Debug: print what we're checking
+                            matched = any(k.lower() in text_corpus for k in keywords)
+                            if matched:
+                                print(f"✅ MATCH: '{m.get('question')[:50]}' | Keywords: {keywords}")
                                 found.append(m)
                 return found
 
             markets = process_events(data)
             
-            # Attempt 2: Firehose (ALWAYS valid to supplement specific query)
-            # Fetch top 1000 trending/active events to catch broader topic coverage
-            print(f"--- [Gamma Client] 🌊 Fetching Firehose (Top 1000) to ensure coverage...")
-            firehose_params = {"limit": 1000, "closed": "false", "order": "volume24hr"}
+            
+            # Attempt 2: Firehose (ALWAYS fetch to supplement specific query)
+            # Fetch broadly without volume filter to catch ALL relevant markets
+            print(f"--- [Gamma Client] 🌊 Fetching Firehose (top 500) to ensure coverage...")
+            firehose_params = {"limit": 500, "closed": "false"}
             if tags:
                 firehose_params["tag"] = tags
             
@@ -80,6 +98,46 @@ async def fetch_markets(
             print(f"Error fetching markets: {e}")
             return []
 
+    # Stratified sampling: ensure diversity across keywords
+    # Group markets by which keyword they matched, then sample evenly
+    if len(keywords) > 1 and len(markets) > 100:
+        print(f"--- [Gamma Client] 🎯 Stratifying {len(markets)} markets across {len(keywords)} keywords...")
+        keyword_buckets = {k: [] for k in keywords}
+        
+        # Assign each market to its matching keyword bucket
+        for m in markets:
+            text_corpus = (m.get("question", "") + " " + m.get("event_title", "")).lower()
+            outcomes_raw = m.get("outcomes", "")
+            if isinstance(outcomes_raw, str):
+                try:
+                    import json
+                    outcomes = json.loads(outcomes_raw)
+                    text_corpus += " " + " ".join(outcomes).lower()
+                except:
+                    text_corpus += " " + outcomes_raw.lower()
+            elif isinstance(outcomes_raw, list):
+                text_corpus += " " + " ".join(str(o) for o in outcomes_raw).lower()
+            
+            # Find first matching keyword
+            for k in keywords:
+                if k.lower() in text_corpus:
+                    keyword_buckets[k].append(m)
+                    break
+        
+        # Sample evenly: take up to (100 / num_keywords) from each bucket
+        per_keyword_limit = 100 // len(keywords)
+        balanced_markets = []
+        for k, bucket in keyword_buckets.items():
+            sample = bucket[:per_keyword_limit]
+            balanced_markets.extend(sample)
+            print(f"  - {k}: {len(sample)} markets (from {len(bucket)} available)")
+        
+        markets = balanced_markets
+    elif len(markets) > 100:
+        print(f"--- [Gamma Client] ⚠️ Capping at 100 markets (found {len(markets)})")
+        markets = markets[:100]
+
+    print(f"Polymarket Gamma API returned: Found {len(markets)} markets matching keywords {keywords}")
     return markets
 
 async def fetch_market_by_id(market_id: str) -> Optional[Dict]:

@@ -64,45 +64,10 @@ async def allocator_node(state: AgentState) -> AgentState:
     risk_markets = filter_markets(markets, risk)
     logger.info(f"{len(risk_markets)} markets passed risk filter (out of {len(markets)})")
     
-    if len(markets) < 10:
-        logger.think(f"Observation: Only {len(markets)} markets found via API. This is low. I will try to supplement with Agentic Search.")
+    # Skip semantic filter - the gamma_client should already filter by keywords
+    valid_markets = risk_markets
+    logger.think(f"Using all {len(valid_markets)} risk-filtered markets.")
 
-    # 2.5 Semantic Relevance Filter (LLM)
-    valid_markets = []
-    if risk_markets and "placeholder" not in os.getenv("OPENAI_API_KEY", "placeholder"):
-        logger.think(f"Action: Cross-referencing {len(risk_markets)} valid markets against thesis '{pf.name}' to ensure topic alignment...")
-        
-        market_texts = [f"ID: {m.get('id')} | Question: {m.get('question')} | Event: {m.get('event_title')}" for m in risk_markets]
-        llm_filter = ChatOpenAI(model="gpt-4o-mini", temperature=0) # Cheap model for filtering
-        
-        filter_prompt = (
-            f"Thesis: {pf.name} - {pf.description}\n"
-            f"Keywords: {pf.keywords}\n\n"
-            "Task: Filter the following markets. Return ONLY the IDs of markets that are strictly relevant to the thesis.\n"
-            "If a market is tangentially related but not core to the thesis, exclude it.\n"
-            "Return format: JSON list of strings (IDs only). e.g. [\"123\", \"456\"]\n\n"
-            f"Markets:\n" + "\n".join(market_texts)
-        )
-        
-        try:
-            msg = await llm_filter.ainvoke([SystemMessage(content="You are a Strict Portfolio Compliance Officer."), HumanMessage(content=filter_prompt)])
-            import json
-            raw = msg.content.replace("```json", "").replace("```", "").strip()
-            allowed_ids = json.loads(raw)
-            
-            for m in risk_markets:
-                if str(m.get("id")) in allowed_ids:
-                    valid_markets.append(m)
-                else:
-                    logger.think(f"Dropped Off-Topic: {m.get('question')[:50]}...")
-            
-            logger.think(f"Result: {len(valid_markets)} markets confirmed relevant (out of {len(risk_markets)}).")
-            
-        except Exception as e:
-            logger.error(f"Filter Error: {e}")
-            valid_markets = risk_markets # Fallback
-    else:
-        valid_markets = risk_markets
     
     # 3. Generate Agentic Reasoning (The "Why")
     event_rationales = {}
