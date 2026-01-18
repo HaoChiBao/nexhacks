@@ -14,13 +14,23 @@ export const useFundStore = create<FundState>((set) => ({
   isLoading: false,
   error: null,
   fetchFunds: async () => {
+    console.log("Fetching funds from Supabase...");
     set({ isLoading: true, error: null })
     try {
       const { data, error } = await supabase
         .from('funds')
         .select('*')
       
-      if (error) throw error
+      if (error) {
+        console.error("Supabase error fetching funds:", error);
+        throw error
+      }
+
+      if (!data) {
+        throw new Error("No data returned from Supabase");
+      }
+
+      console.log(`Successfully fetched ${data.length} funds.`);
 
       // Map DB snake_case to camelCase if necessary, or ensure DB columns match interface.
       // SQL schema uses snake_case for some columns: returns_month, returns_inception, liquidity_score etc.
@@ -37,15 +47,15 @@ export const useFundStore = create<FundState>((set) => ({
           nav: item.nav,
           aum: item.aum,
         },
-        holdings: item.holdings,
-        tags: item.tags,
+        holdings: item.holdings || [], // Ensure holdings is an array
+        tags: item.tags || [], // Ensure tags is an array
         createdBy: item.created_by || 'Unknown',
       }))
 
       set({ funds: mappedFunds })
     } catch (err: any) {
       console.error('Error fetching funds:', err)
-      set({ error: err.message })
+      set({ error: err.message || "Failed to fetch funds" })
     } finally {
       set({ isLoading: false })
     }
