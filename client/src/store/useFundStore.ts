@@ -46,8 +46,8 @@ export const useFundStore = create<FundState>((set) => ({
         logo: item.logo,
         metrics: {
           sharpe: item.sharpe,
-          nav: item.nav,
-          aum: item.aum,
+          nav: item.nav || 10,
+          aum: item.aum || 0,
         },
         holdings: item.holdings || [], // Ensure holdings is an array
         tags: item.tags || [], // Ensure tags is an array

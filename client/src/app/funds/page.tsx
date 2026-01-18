@@ -54,7 +54,7 @@ export default function ExploreFundsPage() {
         
         const matchesSearch = f.name.toLowerCase().includes(query) ||
             f.thesis.toLowerCase().includes(query) ||
-            (f.metrics.aum?.toString().includes(query)) ||
+            (f.metrics.aum ? f.metrics.aum.toString().includes(query) : false) || // Safer check
             f.tags.some(t => {
                 const lowerTag = t.toLowerCase();
                 return expandedTags.some(et => lowerTag.includes(et)) || lowerTag.includes(query);
