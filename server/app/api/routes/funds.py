@@ -55,6 +55,24 @@ def get_all_funds():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{fund_id}")
+def get_fund(fund_id: str):
+    """Fetch a specific fund by ID."""
+    try:
+        supabase = get_supabase()
+        res = supabase.table("funds").select("*").eq("id", fund_id).execute()
+        
+        if not res.data:
+            # Fallback: check draft/pending if needed, or just return 404
+             raise HTTPException(status_code=404, detail="Fund not found")
+             
+        return res.data[0]
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Error fetching fund {fund_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("")
 async def publish_fund(fund: FundPublishRequest):
     try:
