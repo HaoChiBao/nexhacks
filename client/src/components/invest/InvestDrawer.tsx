@@ -98,12 +98,23 @@ export function InvestDrawer() {
         return;
     }
 
+    // DEBUG: Log payload
+    console.log("💰 handleInvest Triggered");
+    console.log("Payload:", {
+        fund_id: fund.id,
+        fund_name: fund.name,
+        amount: amount,
+        user_id: user.id
+    });
+
     if (!agreeTerms) return;
     setIsProcessing(true);
     setTransactionStatus("idle");
 
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        console.log(`Connecting to Backend: ${API_URL}/portfolios/invest`);
+        
         const response = await fetch(`${API_URL}/portfolios/invest`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -116,12 +127,16 @@ export function InvestDrawer() {
             })
         });
 
+        console.log("Response Status:", response.status, response.statusText);
+
         if (!response.ok) {
             const err = await response.json();
+            console.error("Backend Error Response:", err);
             throw new Error(parseError(err));
         }
 
         const data = await response.json();
+        console.log("Success Data:", data);
         
         if (data.new_balance !== undefined) {
              addDeposit(-amount); 
@@ -130,7 +145,7 @@ export function InvestDrawer() {
         setTransactionStatus("success");
 
     } catch (e: any) {
-        console.error(e);
+        console.error("Invest Error Caught:", e);
         setErrorMessage(parseError(e));
         setTransactionStatus("error");
     } finally {
