@@ -23,7 +23,7 @@ export function FundBuilderLayout({ children, currentStage }: FundBuilderLayoutP
         </div>
 
         {/* Center: Main Stage Content */}
-        <div className="col-span-8 overflow-y-auto scrollbar-none bg-background p-8 relative">
+        <div className="col-span-8 overflow-y-auto scrollbar-hide bg-background p-8 relative">
           <div className="max-w-4xl mx-auto pb-20">
             {children}
           </div>

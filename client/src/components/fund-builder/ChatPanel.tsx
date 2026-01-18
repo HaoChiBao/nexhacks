@@ -100,7 +100,7 @@ export function ChatPanel() {
         <h3 className="font-bold text-white text-sm">AI Chat</h3>
       </div>
 
-      <div className="flex-grow p-4 overflow-y-auto space-y-4 scrollbar-none">
+      <div className="flex-grow p-4 overflow-y-auto space-y-4 scrollbar-hide">
         {messages.map((msg) => (
           <div key={msg.id} className={cn("flex gap-3 max-w-[90%]", msg.role === 'user' ? "ml-auto flex-row-reverse" : "")}>
             <div className={cn(
@@ -124,7 +124,7 @@ export function ChatPanel() {
       </div>
 
       <div className="p-4 border-t border-border-dark">
-        <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-none">
+        <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
           {['Explain Weights', 'Show Sources', 'Re-run Sim'].map(chip => (
             <button
               key={chip}

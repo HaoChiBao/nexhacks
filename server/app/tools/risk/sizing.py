@@ -125,24 +125,54 @@ def create_allocation_plan(
         final_picks.append(group_list[0])
         
     # Phase 3: Allocate (Confidence Weighted)
-    # Instead of equal weight, we scale weights by confidence
-    total_confidence = sum(p["confidence"] for p in final_picks)
-    if total_confidence <= 0:
-        return AllocationPlan(targets=[], trades=[], warnings=["Total confidence was zero."])
+    # Apply Min-Max Normalization to create drastic differences
+    # (score - min) / (max - min)
+    if final_picks:
+        confidences = [p["confidence"] for p in final_picks]
+        min_c = min(confidences)
+        max_c = max(confidences)
+        
+        # If there is a spread, normalize
+        if max_c > min_c:
+            for p in final_picks:
+                # Replace confidence with normalized score (0.0 to 1.0) multiplied by 100 for readability
+                # But actually, the raw value doesn't matter for the ratio, keeping it as 0-100 scale is fine if we want
+                # actually, user wants specific "percentage of the difference", so 0 to 1 float is best.
+                p["confidence_score"] = (p["confidence"] - min_c) / (max_c - min_c)
+        else:
+            # If all equal, give them equal score (e.g. 1.0)
+            for p in final_picks:
+                p["confidence_score"] = 1.0
 
-    # We want to fill up to bankroll, but respect max_position_pct
-    # Target total exposure (can be < 1.0 if few picks)
-    count = len(final_picks)
-    max_total_exposure = min(1.0, count * risk.max_position_pct)
+    # Instead of equal weight, we scale weights by confidence_score
+    score_sum = sum(p["confidence_score"] for p in final_picks)
     
-    # Calculate raw weights based on confidence
-    for pick in final_picks:
-        # Normalized weight: (conf / total_conf) * max_total_exposure
-        raw_conf_weight = (pick["confidence"] / total_confidence) * max_total_exposure
-        # Apply per-position cap
-        pick["final_weight"] = min(raw_conf_weight, risk.max_position_pct)
-    
+    if score_sum <= 0:
+        # Fallback to equal weighting if scores are all zero (shouldn't happen with normalization 0-1 unless all min)
+        # Actually min-max with all same gives 1.0.
+        # If we have single item max=min, we gave it 1.0.
+        # just safely handle 0
+        for p in final_picks:
+            p["final_weight"] = 1.0 / len(final_picks)
+    else:
+        # Normalize strictly to 1.0 (100%)
+        # weight = score / score_sum
+        cumulative_weight = 0.0
+        for i, pick in enumerate(final_picks):
+            # Calculate raw share
+            share = pick["confidence_score"] / score_sum
+            
+            # For the last item, take the remainder to ensure exact 1.0
+            if i == len(final_picks) - 1:
+                weight = 1.0 - cumulative_weight
+            else:
+                weight = share
+                
+            pick["final_weight"] = weight
+            cumulative_weight += weight
+            
     # Final Pass to build plan
+    total_alloc_usd = 0.0
     for pick in final_picks:
         m = pick["market"]
         weight = pick["final_weight"]
@@ -167,7 +197,7 @@ def create_allocation_plan(
             outcome=pick["outcome"],
             side="BUY", 
             amount_usd=target_usd,
-            reason=f"Confidence-weighted allocation ({pick['confidence']}%)"
+            reason=f"Agent-determined weighting ({weight*100:.1f}% alloc based on {pick['confidence']}% confid.)"
         ))
         
         total_alloc_usd += target_usd
@@ -175,5 +205,5 @@ def create_allocation_plan(
     return AllocationPlan(
         targets=targets,
         trades=trades,
-        warnings=[f"Confidence-weighted allocation complete. Allocated ${total_alloc_usd:.2f} across {len(final_picks)} events."]
+        warnings=[f"Agent-driven allocation complete. Allocated 100% of bankroll (${total_alloc_usd:.2f}) across {len(final_picks)} events."]
     )

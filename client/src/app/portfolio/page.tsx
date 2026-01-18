@@ -1,10 +1,69 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Filter, ArrowUpDown, Calendar, TrendingUp, ChevronRight, MoreHorizontal, Bookmark } from "lucide-react";
+import { useFundStore } from "@/store/useFundStore";
+import { supabase } from "@/lib/supabase";
 
 export default function PortfolioPage() {
+  const { funds, fetchFunds } = useFundStore();
+  const [portfolio, setPortfolio] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [totalNav, setTotalNav] = useState(0);
+
+  useEffect(() => {
+    // Ensure funds are loaded to map details
+    if (funds.length === 0) {
+        fetchFunds();
+    }
+  }, [fetchFunds, funds.length]);
+
+  useEffect(() => {
+    async function fetchPortfolio() {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                console.log("No user found");
+                setIsLoading(false);
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('portfolio')
+                .eq('id', user.id)
+                .single();
+
+            if (data?.portfolio) {
+                setPortfolio(data.portfolio);
+                
+                // Calculate Total NAV (Invested Amount + PnL)
+                // Note: stored portfolio is simplified for now, assuming invested_amount is current value or similar
+                // For a real app, we'd calculate generic value = invested * (1 + pnl_percent/100)
+                const total = data.portfolio.reduce((acc: number, item: any) => {
+                    const value = item.invested_amount * (1 + (item.pnl_percent || 0) / 100);
+                    return acc + value;
+                }, 0);
+                setTotalNav(total);
+            }
+        } catch (e) {
+            console.error("Error fetching portfolio", e);
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    fetchPortfolio();
+  }, [funds]); // Re-run if funds load, though strictly only dependent on user login
+
+  // Helper to find fund details
+  const getFundDetails = (fundId: string) => {
+      // Try exact match or partial match for demo valid IDs vs slugs
+      return funds.find(f => f.id === fundId || f.id.includes(fundId) || fundId.includes(f.id));
+  };
+
   return (
     <div className="container mx-auto pb-12">
       {/* Page Header */}
@@ -14,7 +73,7 @@ export default function PortfolioPage() {
             Your Invested Funds
           </h1>
           <p className="text-gray-400">
-            Managing 4 active positions across 3 sectors
+            Managing {portfolio.length} active positions
           </p>
         </div>
         <div className="flex flex-col items-end gap-3">
@@ -38,53 +97,44 @@ export default function PortfolioPage() {
         {/* Main Content: Fund Cards (Col Span 2) */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-min">
             
-            {/* Fund Card 1: Tariff Tracker */}
-            <PortfolioCard 
-                symbol="TT"
-                symbolColor="bg-blue-900/30 text-blue-400"
-                category="GEOPOLITICS"
-                categoryColor="text-blue-400 bg-blue-400/10"
-                title="Tariff Tracker Basket"
-                invested="$4,250.00"
-                positions={[
-                    { name: "TARIFF_ANY", percent: "40%", pnl: "+$142.50", pnlColor: "text-emerald-400" },
-                    { name: "TARIFF_ALL", percent: "35%", pnl: "-$28.10", pnlColor: "text-red-400" },
-                    { name: "TARIFF_UK", percent: "25%", pnl: "+$12.00", pnlColor: "text-emerald-400" },
-                ]}
-                bgGradient="from-blue-900/10 to-transparent"
-            />
-
-            {/* Fund Card 2: Musk Metrics */}
-            <PortfolioCard 
-                symbol="MM"
-                symbolColor="bg-amber-900/30 text-amber-400"
-                category="TECH"
-                categoryColor="text-amber-400 bg-amber-400/10"
-                title="Musk Metrics Micro-Fund"
-                invested="$2,800.00"
-                positions={[
-                    { name: "MUSK_TWEETS_LT40", percent: "25%", pnl: "+$480.20", pnlColor: "text-emerald-400" },
-                    { name: "MUSK_RYAIR", percent: "60%", pnl: "+$120.40", pnlColor: "text-emerald-400" },
-                    { name: "CASH_RESERVE", percent: "15%", pnl: "---", pnlColor: "text-gray-500" },
-                ]}
-                bgGradient="from-amber-900/10 to-transparent"
-            />
-
-             {/* Fund Card 3: Earthquake Watch */}
-             <PortfolioCard 
-                symbol="EQ"
-                symbolColor="bg-rose-900/30 text-rose-400"
-                category="CLIMATE"
-                categoryColor="text-rose-400 bg-rose-400/10"
-                title="Earthquake Watch"
-                invested="$1,500.00"
-                positions={[
-                    { name: "EQ_65_0", percent: "35%", pnl: "-$340.00", pnlColor: "text-red-400" },
-                    { name: "EQ_65_1", percent: "35%", pnl: "-$120.00", pnlColor: "text-red-400" },
-                    { name: "EQ_65_2P", percent: "30%", pnl: "+$45.00", pnlColor: "text-emerald-400" },
-                ]}
-                bgGradient="from-rose-900/10 to-transparent"
-            />
+            {isLoading ? (
+                <div className="col-span-2 flex justify-center py-20 text-gray-500">
+                    Loading portfolio...
+                </div>
+            ) : portfolio.length === 0 ? (
+                <div className="col-span-2 flex flex-col items-center justify-center py-20 border border-dashed border-gray-800 rounded-xl text-center">
+                    <p className="text-gray-400 mb-4">You have no active investments.</p>
+                    <Link href="/funds">
+                        <button className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover">
+                            Explore Funds
+                        </button>
+                    </Link>
+                </div>
+            ) : (
+                portfolio.map((item, idx) => {
+                    const fund = getFundDetails(item.fund_id);
+                    const currentValue = item.invested_amount * (1 + (item.pnl_percent || 0) / 100);
+                    
+                    return (
+                        <PortfolioCard 
+                            key={idx}
+                            symbol={fund?.name.substring(0, 2).toUpperCase() || "EF"}
+                            symbolColor="bg-blue-900/30 text-blue-400"
+                            category={fund?.tags[0] || "General"}
+                            categoryColor="text-blue-400 bg-blue-400/10"
+                            title={fund?.name || item.fund_id}
+                            invested={`$${currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            positions={[
+                                // Mock positions for now as portfolio JSON only stores top-level
+                                { name: "Primary Thesis", percent: "60%", pnl: `${item.pnl_percent > 0 ? '+' : ''}${item.pnl_percent}%`, pnlColor: item.pnl_percent >= 0 ? "text-emerald-400" : "text-red-400" },
+                                { name: "Hedge", percent: "40%", pnl: "---", pnlColor: "text-gray-500" },
+                            ]}
+                            bgGradient="from-blue-900/10 to-transparent"
+                            fundId={fund?.id || item.fund_id}
+                        />
+                    );
+                })
+            )}
 
         </div>
 
@@ -98,8 +148,8 @@ export default function PortfolioPage() {
                    <MoreHorizontal className="w-5 h-5 text-gray-500 cursor-pointer hover:text-white" />
                </div>
                <div className="flex items-baseline gap-3 mb-6">
-                   <span className="text-4xl font-bold text-white tracking-tight">$8,550.00</span>
-                   <span className="text-sm font-bold text-emerald-400">+12.4%</span>
+                   <span className="text-4xl font-bold text-white tracking-tight">${totalNav.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                   <span className="text-sm font-bold text-emerald-400">+{(totalNav > 0 ? ((totalNav - 8550)/8550 * 100) : 0).toFixed(1)}%</span>
                </div>
                
                {/* Sparkline Visual (SVG) */}
@@ -174,9 +224,9 @@ export default function PortfolioPage() {
 // Local Components
 // ---------------------------
 
-function PortfolioCard({ symbol, symbolColor, category, categoryColor, title, invested, positions, bgGradient }: any) {
+function PortfolioCard({ symbol, symbolColor, category, categoryColor, title, invested, positions, bgGradient, fundId }: any) {
     return (
-        <Link href={`/funds/${symbol}`} className="block h-full">
+        <Link href={`/funds/${fundId || symbol}`} className="block h-full">
             <div className={cn("bg-surface-dark border border-border-dark rounded-2xl p-6 relative overflow-hidden flex flex-col h-full hover:border-primary/50 transition-colors group cursor-pointer")}>
                 {/* Background Gradient */}
                 <div className={cn("absolute top-0 right-0 w-2/3 h-full bg-gradient-to-l opacity-20 pointer-events-none", bgGradient)}></div>

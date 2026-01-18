@@ -20,6 +20,9 @@ export interface RebalanceResponse {
         summary: string;
         evidence_items: Array<{ title: string; url: string }>;
     };
+    summary_markdown?: string;
+    proposal_json?: string;
+    report_pdf?: string;
     agent_logs?: Array<{
         node: string;
         type: string;

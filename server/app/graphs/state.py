@@ -14,5 +14,8 @@ class AgentState(TypedDict):
     research_output: Optional[ResearchResult]
     allocation_plan: Optional[AllocationPlan]
     recommendation_text: Optional[str]
+    summary_markdown: Optional[str]
+    proposal_json: Optional[str]
+    report_pdf: Optional[str]
     messages: List[str]  # Simple legacy log
     structured_logs: List[dict] # [{ "node": str, "type": "thinking"|"info"|"error", "message": str, "timestamp": str }]
