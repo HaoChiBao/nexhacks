@@ -9,13 +9,14 @@ import { WeightingStage } from '@/components/fund-builder/stages/3-WeightingStag
 import { FinalizeStage } from '@/components/fund-builder/stages/4-FinalizeStage';
 
 export default function CreateFundPage() {
-  const { currentStage } = useFundBuilderStore();
+  const { currentStage, resetDraft } = useFundBuilderStore();
   const [mounted, setMounted] = useState(false);
 
-  // Prevent hydration mismatch for persisted store
+  // Reset store on mount to ensure fresh state
   useEffect(() => {
+    resetDraft();
     setMounted(true);
-  }, []);
+  }, [resetDraft]);
 
   if (!mounted) {
     return (

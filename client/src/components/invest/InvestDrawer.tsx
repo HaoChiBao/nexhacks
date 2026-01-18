@@ -13,10 +13,10 @@ import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 // import { funds } from "@/lib/data/funds"; // Removed mock import
 import { useFundStore } from "@/store/useFundStore"; // Use store instead
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import * as Switch from "@radix-ui/react-switch";
-import { Info, Lock, Clock, TrendingUp, AlertTriangle } from "lucide-react";
+import { Info, Lock, Clock, TrendingUp, AlertTriangle, Loader2 } from "lucide-react";
 
 export function InvestDrawer() {
   const router = useRouter();
@@ -24,7 +24,8 @@ export function InvestDrawer() {
     investDrawerOpen,
     closeInvestDrawer,
     selectedFundId,
-    balance,
+    balance: appBalance, // Rename to distinguish
+    setBalance, // Use this if available, otherwise we assume balance is read-only from auth or needs a refresh action
     isLiveMode,
     addDeposit,
   } = useAppStore();
@@ -50,7 +51,7 @@ export function InvestDrawer() {
     if (!open) closeInvestDrawer();
   };
 
-  const handleInvest = () => {
+  const handleInvest = async () => {
     if (!user) {
         // Redirect to login if called (though button should handle this)
         router.push('/login');
@@ -60,12 +61,45 @@ export function InvestDrawer() {
 
     if (!agreeTerms) return;
     setIsProcessing(true);
-    setTimeout(() => {
-        addDeposit(-amount); // Deduct balance mock (sync with DB later)
-        setIsProcessing(false);
+
+    try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const response = await fetch(`${API_URL}/portfolios/invest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fund_id: fund.id,
+                fund_name: fund.name,
+                fund_logo: fund.logo, // We pass it, backend saves it, though frontend might ignore it for initials
+                amount: amount,
+                user_id: user.id
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Investment failed");
+        }
+
+        const data = await response.json();
+        
+        // Update local app state
+        // Assuming data.new_balance is returned
+        if (data.new_balance !== undefined) {
+             // In a real app we'd update a dedicated user store, 
+             // but here we might use the mock action or simple re-fetch
+             addDeposit(-amount); // Update UI balance immediately
+        }
+
+        alert(`Successfully invested $${amount} in ${fund.name}!`);
         closeInvestDrawer();
-        alert(isLiveMode ? "Transaction Requested" : "Simulated Deposit Created");
-    }, 1500);
+
+    } catch (e: any) {
+        console.error(e);
+        alert(`Investment failed: ${e.message}`);
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
   const handleLoginRedirect = () => {
@@ -104,11 +138,11 @@ export function InvestDrawer() {
             </div>
             <div className="flex justify-between items-start mb-3 relative z-10">
               <div className="flex items-center gap-3">
-                <img
-                  alt="Fund Icon"
-                  className="w-12 h-12 rounded-xl shadow-lg ring-1 ring-gray-700 object-cover"
-                  src={fund.logo}
-                />
+                 <div className="h-12 w-12 rounded-xl bg-surface-dark p-1 shadow-md border border-border-dark flex items-center justify-center">
+                    <div className="w-full h-full rounded-lg flex items-center justify-center font-bold text-lg bg-gray-800/50 text-white">
+                        {getInitials(fund.name)}
+                    </div>
+                  </div>
                 <div>
                   <h3 className="font-bold text-white text-lg">{fund.name}</h3>
                   <p className="text-xs text-gray-400">Managed by PrintMoney Core</p>
@@ -146,7 +180,7 @@ export function InvestDrawer() {
               <span className="text-gray-400">
                 Available Balance:{" "}
                 <span className="text-gray-300 font-mono">
-                  ${balance.toLocaleString()}
+                  ${appBalance.toLocaleString()}
                 </span>
               </span>
               <span className="text-orange-400 flex items-center gap-1">
@@ -161,7 +195,7 @@ export function InvestDrawer() {
                 <input 
                     type="range" 
                     min={0} 
-                    max={Math.min(10000, balance)} 
+                    max={Math.min(10000, appBalance)} 
                     value={amount} 
                     onChange={(e) => setAmount(Number(e.target.value))}
                     className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-primary"
@@ -171,7 +205,7 @@ export function InvestDrawer() {
                 {[25, 50, 75, 100].map((pct) => (
                   <button
                     key={pct}
-                    onClick={() => setAmount(Math.floor(balance * (pct / 100)))}
+                    onClick={() => setAmount(Math.floor(appBalance * (pct / 100)))}
                     className="px-4 py-1.5 rounded-lg border border-border-dark bg-surface-hover/50 hover:bg-surface-hover hover:border-gray-600 text-xs font-medium text-gray-400 transition-colors"
                     disabled={!user}
                   >
@@ -254,7 +288,7 @@ export function InvestDrawer() {
                 </span>
                 <div className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-lg">
                 <span>Confirm</span>
-                <TrendingUp className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                 </div>
             </button>
           ) : (

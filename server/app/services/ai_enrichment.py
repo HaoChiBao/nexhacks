@@ -32,6 +32,12 @@ def enrich_fund_metadata(
     if len(holdings) > 10:
         holdings_str += f"\n...and {len(holdings) - 10} more."
 
+    allowed_categories = [
+        "News", "Politics", "Sports", "Crypto", "Finance", 
+        "Economy", "Climate", "Culture", "World", "Tech", 
+        "Science", "Health", "Entertainment"
+    ]
+
     prompt = f"""
 SYSTEM:
 You generate missing human-facing metadata for a prediction-market fund.
@@ -55,7 +61,7 @@ Rules:
 - secondary_thesis: one sentence 10–25 words
 - description: 1–2 sentences, UI-friendly, no hype
 - tags: 3 strings, broad labels
-- categories: 3 strings, more specific taxonomy
+- categories: Select 1-3 categories STRICTLY from this list: {json.dumps(allowed_categories)}
 
 Output JSON with ONLY the missing keys.
 """
