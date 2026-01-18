@@ -1,6 +1,8 @@
-import { MarketLine, BacktestResult, UniverseRules } from '../types/fund-builder';
+import { MarketLine } from '../types/market-line';
+import { BacktestResult, UniverseRules } from '../types/fund-builder';
+import { toMarketLine } from '../adapters/toMarketLine';
 
-const BASE_LINES: MarketLine[] = [
+const RAW_LINES = [
   {
     id: 'mkt-001',
     question: 'US AI Safety Bill passed in 2024?',
@@ -107,14 +109,13 @@ const BASE_LINES: MarketLine[] = [
   }
 ];
 
+const BASE_LINES: MarketLine[] = RAW_LINES.map(line => toMarketLine(line));
+
 export async function scanMarketUniverse(rules: UniverseRules): Promise<MarketLine[]> {
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 1500));
   
   // Filter based on simple mock logic
-  // In a real app, logic would be complex. Here we just return a subset or all based on "tags".
-  // For MVP, if "AI" is in tags, we return most of them.
-  
   if (rules.includeTags.some(t => t.toLowerCase().includes('ai'))) {
       return BASE_LINES;
   }

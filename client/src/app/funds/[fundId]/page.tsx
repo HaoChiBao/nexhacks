@@ -146,6 +146,15 @@ const initialEdges: Edge[] = [
 ];
 
 
+// Helper for initials
+const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+};
+
 export default function FundDetailsPage({ params }: { params: { fundId: string } }) {
   const { funds, fetchFunds, isLoading: isStoreLoading } = useFundStore();
   
@@ -251,14 +260,9 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
         
         {/* Title */}
         <div className="flex items-center gap-3">
-             <img 
-                src={fund.logo} 
-                alt={fund.name} 
-                className="w-12 h-12 rounded-lg object-cover bg-gray-800"
-                onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fund.name)}&background=random`;
-                }}
-             />
+             <div className="w-12 h-12 rounded-lg bg-emerald-900/30 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-lg">
+                {getInitials(fund.name)}
+             </div>
              <div>
                  <h1 className="text-xl font-bold text-white">{fund.name}</h1>
                  <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">{fund.thesis}</p>
@@ -361,7 +365,7 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
                 <h2 className="text-lg font-bold text-white">Market Details</h2>
             </div>
 
-            <div className="flex-grow overflow-y-auto p-4 space-y-4">
+            <div className="flex-grow overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                 
                 {fund.holdings.map((holding, i) => (
                     <BetCard 
@@ -452,7 +456,7 @@ function BetCard({ title, line, price, description, isOver, type, initialAlloc =
             <div className="mb-6">
                  <div className="flex justify-between text-xs font-bold text-gray-400 mb-2">
                     <span>Allocation</span>
-                    <span className="text-white font-mono">${allocation}</span>
+                    <span className="text-white font-mono">${Number(allocation).toFixed(2)}</span>
                  </div>
                  <input 
                     type="range" 
@@ -462,7 +466,8 @@ function BetCard({ title, line, price, description, isOver, type, initialAlloc =
                     onChange={(e) => setAllocation(Number(e.target.value))}
                     className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-primary"
                  />
-            </div>
+             </div>
+
 
             {/* Actions */}
             <div className="grid grid-cols-2 gap-3">

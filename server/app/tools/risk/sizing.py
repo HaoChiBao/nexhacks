@@ -98,8 +98,8 @@ def create_allocation_plan(
             else:
                 specific_rationale = str(match_data)
         
-        # Only keep high conviction trades (e.g. > 70)
-        if confidence >= 70:
+        # Keep trades with decent conviction (e.g. >= 65)
+        if confidence >= 65:
             candidates.append({
                 "market": m,
                 "outcome": outcome,
