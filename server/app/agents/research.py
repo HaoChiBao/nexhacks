@@ -27,29 +27,79 @@ async def research_node(state: AgentState) -> AgentState:
     logger.start(f"Starting research for '{pf.name}'")
     logger.think(f"Strategy: I will search for {pf.keywords} to gather broad context, then use LLM to synthesize findings into an investment thesis.")
     
-    # 1. Search
-    evidence_items = []
-    logger.tool_call("Tavily Search", str(pf.keywords[:2]))
+    # 1. Search Phase
+    # We want a diverse pool, so we search for ALL keywords first
+    candidate_pools = {} # {keyword: [articles]}
+    total_candidates = 0
     
-    # Search for first 2 keywords
-    for kw in pf.keywords[:2]:
+    # Use top 5 keywords to avoid explosion but ensure diversity
+    target_keywords = pf.keywords[:5] 
+    
+    for kw in target_keywords:
+        logger.think(f"Hypothesis: Searching for '{kw}' will reveal broad market sentiment and potential catalysts.")
+        logger.think(f"Action: Querying search engine for '{kw}'...")
+        logger.tool_call("Tavily Search", kw)
+        
         results = await search_news(kw)
-        evidence_items.extend(results)
+        candidate_pools[kw] = results
+        total_candidates += len(results)
+        
+        logger.tool_result("Tavily Search", f"Returned {len(results)} links for '{kw}'.")
+        
+        titles = [r.get('title') for r in results[:3]]
+        if titles:
+            logger.think(f"Observation: Found articles: {titles}.")
+
+    logger.think(f"Status: Gathered {total_candidates} candidates across {len(target_keywords)} keywords. Starting Round-Robin extraction to build a balanced dataset (Target: 10 articles).")
+
+    # 2. Round-Robin Extraction Loop
+    evidence_items = []
+    MAX_ITEMS = 10
     
-    logger.tool_result("Tavily Search", f"Found {len(evidence_items)} initial articles")
-    
-    # 2. Extract - Enrich the top 2 results with full text
-    limit = 2
-    logger.info(f"Extracting full text from {min(len(evidence_items), limit)} articles...")
-    
-    for item in evidence_items[:limit]:
-        if item.get("url"):
-            try:
-                content = await extract_article_content(item["url"])
-                if content:
-                    item["content"] = content
-            except:
-                logger.error(f"Failed to extract {item.get('url')}")
+    # We cycle through keywords until we hit MAX_ITEMS or run out of candidates
+    while len(evidence_items) < MAX_ITEMS and any(candidate_pools.values()):
+        for kw in target_keywords:
+            if len(evidence_items) >= MAX_ITEMS:
+                break
+                
+            pool = candidate_pools.get(kw, [])
+            if not pool:
+                continue
+                
+            # Try getting ONE working article for this keyword in this round
+            found_for_keyword = False
+            
+            while pool and not found_for_keyword:
+                item = pool.pop(0) # Take next candidate
+                url = item.get("url")
+                title = item.get("title", "Unknown Title")
+                
+                # Deduplicate by URL
+                if any(x.get("url") == url for x in evidence_items):
+                    continue
+
+                if url:
+                     logger.think(f"Intent: [Round-Robin: {kw}] Attempting to read '{title}' ({url})...")
+                     logger.think(f"Action: Parsing full content of '{title}'...")
+                     try:
+                        content = await extract_article_content(url)
+                        if content:
+                            item["content"] = content
+                            evidence_items.append(item)
+                            found_for_keyword = True
+                            
+                            # Insight Log
+                            snippet = content[:200].replace("\n", " ")
+                            logger.think(f"Insight from '{title}': \"{snippet}...\" -> Successfully added to dataset.")
+                        else:
+                            logger.think(f"Result: Content extraction failed (or empty) for '{title}'. Trying next candidate for '{kw}'...")
+                     except Exception as e:
+                        logger.error(f"Failed to extract {url}: {e}")
+            
+            if not found_for_keyword:
+                logger.think(f"Warning: Exhausted candidates for keyword '{kw}' without success in this round.")
+                
+    logger.think(f"Status: Extraction complete. Gathered {len(evidence_items)} high-quality articles.")
     
     # 3. Synthesize with LLM
     summary_text = "Analysis pending..."
@@ -59,7 +109,7 @@ async def research_node(state: AgentState) -> AgentState:
     
     # Prepare context
     context = ""
-    for item in evidence_items[:limit]: # Feed top 5 to LLM
+    for item in evidence_items: # Feed all gathered items to LLM
         context += f"Source: {item.get('title', 'Unknown')}\n"
         context += f"URL: {item.get('url')}\n"
         context += f"Content: {item.get('content', item.get('content', 'No content'))[:500]}...\n\n"
