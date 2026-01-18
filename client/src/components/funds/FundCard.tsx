@@ -1,21 +1,43 @@
-import { Link } from "lucide-react";
+import { Link, Bookmark } from "lucide-react";
 import { Fund } from "@/lib/data/funds";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
 interface FundCardProps {
   fund: Fund;
+  index: number;
 }
 
-export function FundCard({ fund }: FundCardProps) {
+export function FundCard({ fund, index }: FundCardProps) {
   const router = useRouter();
   const { openInvestDrawer } = useAppStore();
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Deterministic color based on index to ensure contrast between neighbors
+  const theme = useMemo(() => {
+    const colors = [
+      { from: "from-blue-900", to: "to-blue-950", accent: "text-blue-400", bgAccent: "bg-blue-600", borderHover: "hover:border-blue-500/50", shadowHover: "hover:shadow-blue-500/10" },
+      { from: "from-amber-900", to: "to-amber-950", accent: "text-amber-400", bgAccent: "bg-amber-600", borderHover: "hover:border-amber-500/50", shadowHover: "hover:shadow-amber-500/10" },
+      { from: "from-rose-900", to: "to-rose-950", accent: "text-rose-400", bgAccent: "bg-rose-600", borderHover: "hover:border-rose-500/50", shadowHover: "hover:shadow-rose-500/10" },
+      { from: "from-emerald-900", to: "to-emerald-950", accent: "text-emerald-400", bgAccent: "bg-emerald-600", borderHover: "hover:border-emerald-500/50", shadowHover: "hover:shadow-emerald-500/10" },
+      { from: "from-purple-900", to: "to-purple-950", accent: "text-purple-400", bgAccent: "bg-purple-600", borderHover: "hover:border-purple-500/50", shadowHover: "hover:shadow-purple-500/10" },
+      { from: "from-cyan-900", to: "to-cyan-950", accent: "text-cyan-400", bgAccent: "bg-cyan-600", borderHover: "hover:border-cyan-500/50", shadowHover: "hover:shadow-cyan-500/10" },
+    ];
+    
+    return colors[index % colors.length];
+  }, [index]);
 
   const handleAction = (e: React.MouseEvent) => {
     e.stopPropagation();
     openInvestDrawer(fund.id);
   };
+
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsSaved(!isSaved);
+  }
 
   const handleCardClick = () => {
     router.push(`/funds/${fund.id}`);
@@ -24,13 +46,36 @@ export function FundCard({ fund }: FundCardProps) {
   return (
     <div
       onClick={handleCardClick}
-      className="group relative bg-surface-dark rounded-2xl border border-border-dark overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 flex flex-col cursor-pointer"
+      className={cn(
+        "group relative bg-surface-dark rounded-2xl border border-border-dark overflow-hidden transition-all duration-300 hover:shadow-xl flex flex-col cursor-pointer",
+        theme.borderHover,
+        theme.shadowHover
+      )}
     >
       {/* Header / Banner */}
       <div 
-        className="relative h-28 p-4 flex justify-between items-start bg-gradient-to-r from-gray-900 to-gray-800"
+        className={cn(
+            "relative h-28 p-4 flex justify-between items-start bg-gradient-to-r", 
+            theme.from, 
+            theme.to
+        )}
       >
         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+        
+        {/* Bookmark Icon */}
+        <div className="absolute top-4 right-4 z-10">
+            <div 
+                onClick={handleSave}
+                className="p-2 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors cursor-pointer"
+            >
+                <Bookmark 
+                    className={cn(
+                        "w-5 h-5 transition-all duration-200", 
+                        isSaved ? "fill-white text-white" : "text-white/70 hover:text-white"
+                    )} 
+                />
+            </div>
+        </div>
       </div>
 
       <div className="px-6 relative flex-grow">
@@ -47,14 +92,26 @@ export function FundCard({ fund }: FundCardProps) {
 
         <div className="pt-10 pb-4">
           <div className="mb-3">
-              <h3 className="text-lg font-bold text-white group-hover:text-primary transition-colors">
+              <h3 className={cn("text-lg font-bold text-white transition-colors", `group-hover:${theme.accent}`)}>
                 {fund.name}
               </h3>
-              <p className="text-xs text-gray-400 mt-1 leading-snug">
-                <span className="text-primary font-semibold">{fund.thesis}.</span>{" "}
+              
+              {/* Categories / Tags */}
+              <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                {fund.tags.map((tag) => (
+                    <span key={tag} className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 bg-gray-800/50 px-2 py-0.5 rounded border border-gray-700/50">
+                        {tag}
+                    </span>
+                ))}
+              </div>
+
+              {/* Description */}
+              <p className="text-xs text-gray-400 mt-2 leading-relaxed line-clamp-2">
+                <span className={cn("font-semibold", theme.accent)}>{fund.thesis}.</span>{" "}
                 {fund.secondaryThesis}
               </p>
-              <p className="text-[10px] text-gray-500 mt-2 font-medium">
+              
+              <p className="text-[10px] text-gray-500 mt-3 font-medium">
                 Created by: <span className="text-gray-300">{fund.createdBy}</span>
               </p>
           </div>
@@ -67,7 +124,7 @@ export function FundCard({ fund }: FundCardProps) {
                 {fund.holdings.slice(0,3).map((h, i) => (
                      <div key={i} className="flex items-center justify-between">
                      <span className="text-xs font-mono text-gray-300">{h.ticker}</span>
-                     <span className="text-xs font-mono font-medium text-emerald-400">{h.allocation}%</span>
+                     <span className={cn("text-xs font-mono font-medium", theme.accent)}>{h.allocation}%</span>
                    </div>
                 ))}
             </div>
@@ -78,7 +135,10 @@ export function FundCard({ fund }: FundCardProps) {
       <div className="px-6 pb-6 mt-auto">
         <button
             onClick={handleAction}
-          className="w-full py-2.5 rounded-lg font-bold text-sm transition-all shadow-md bg-white text-gray-900 hover:bg-primary hover:text-white"
+          className={cn(
+            "w-full py-2.5 rounded-lg font-bold text-sm transition-all shadow-md bg-white text-gray-900 hover:text-white",
+            `hover:${theme.bgAccent}`
+          )}
         >
           Invest Now
         </button>

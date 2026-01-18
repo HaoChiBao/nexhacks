@@ -11,10 +11,14 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 
+import { useState } from "react";
+
+
 export function Navbar() {
   const pathname = usePathname();
   const { isLiveMode, toggleLiveMode, balance } = useAppStore();
   const { user, signOut } = useAuthStore();
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const navLinks = [
     { name: "Explore Funds", href: "/funds" },
@@ -34,7 +38,7 @@ export function Navbar() {
               P
             </div>
             <span className="font-bold text-xl tracking-tight text-white">
-              PrintMoney
+              FanFunds
             </span>
           </Link>
 
@@ -60,27 +64,28 @@ export function Navbar() {
 
           {/* Right Area */}
           <div className="hidden md:flex items-center gap-4">
-            {/* Paper/Live Toggle */}
-            <div className="flex items-center gap-2 mr-2 relative group">
-              <span className={cn("text-xs font-medium uppercase tracking-wider", !isLiveMode ? "text-white" : "text-gray-400")}>Paper</span>
-              <div 
-                className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors duration-200", isLiveMode ? "bg-emerald-500" : "bg-gray-700")}
-                onClick={toggleLiveMode}
-              >
-                 <div className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 shadow-sm", isLiveMode ? "left-5" : "left-0.5")} />
-              </div>
-              <span className={cn("text-xs font-bold uppercase tracking-wider", isLiveMode ? "text-white" : "text-gray-400")}>Live</span>
-              
-              {/* Tooltip */}
-              <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 px-3 py-2 bg-gray-800 text-xs text-gray-300 rounded shadow-lg border border-gray-700 w-48 text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Switch between real trading (Live) and risk-free simulation (Paper).
-              </div>
-            </div>
+
 
             {/* Notifications */}
             <div className="relative">
-              <Bell className="w-6 h-6 text-gray-400 cursor-pointer hover:text-white transition-colors" />
-              <span className="absolute top-0 right-0 block h-2 w-2 rounded-full ring-2 ring-background-dark bg-red-500"></span>
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative focus:outline-none"
+              >
+                 <Bell className="w-6 h-6 text-gray-400 cursor-pointer hover:text-white transition-colors" />
+                 <span className="absolute top-0 right-0 block h-2 w-2 rounded-full ring-2 ring-background-dark bg-red-500"></span>
+              </button>
+              
+              {showNotifications && (
+                 <div className="absolute top-full right-0 mt-2 w-64 bg-surface-dark border border-border-dark rounded-lg shadow-xl z-50 p-4">
+                    <h3 className="text-sm font-semibold text-white mb-2">Notifications</h3>
+                    <div className="space-y-2">
+                        <div className="p-2 bg-gray-800/50 rounded text-xs text-gray-300">
+                            Welcome to FanFunds! Start exploring prediction funds.
+                        </div>
+                    </div>
+                 </div>
+              )}
             </div>
 
             {/* User Profile */}
