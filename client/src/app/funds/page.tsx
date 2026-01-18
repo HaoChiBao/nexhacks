@@ -6,7 +6,7 @@ import { useFundStore } from "@/store/useFundStore";
 import { FundCard } from "@/components/funds/FundCard";
 import { CategoryNav } from "@/components/funds/CategoryNav";
 import { NewsTicker } from "@/components/dashboard/NewsTicker";
-import { Search, Grid, List, ChevronDown, ChevronUp, ChevronsUpDown, Plus, Loader2 } from "lucide-react";
+import { Search, Grid, List, ChevronDown, ChevronUp, ChevronsUpDown, Plus, Loader2, Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -108,6 +108,8 @@ export default function ExploreFundsPage() {
             onSelectCategory={setSelectedCategory}
         />
       </div>
+
+
 
       {/* Toolbar */}
       <div className="bg-surface-dark border border-border-dark rounded-xl p-4 mb-8 shadow-sm">

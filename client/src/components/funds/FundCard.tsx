@@ -12,8 +12,9 @@ interface FundCardProps {
 
 export function FundCard({ fund, index }: FundCardProps) {
   const router = useRouter();
-  const { openInvestDrawer } = useAppStore();
-  const [isSaved, setIsSaved] = useState(false);
+  const { openInvestDrawer, savedFundIds, toggleSavedFund } = useAppStore();
+  
+  const isSaved = savedFundIds.includes(fund.id);
 
   // Deterministic color based on index to ensure contrast between neighbors
   const theme = useMemo(() => {
@@ -36,7 +37,7 @@ export function FundCard({ fund, index }: FundCardProps) {
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsSaved(!isSaved);
+    toggleSavedFund(fund.id);
   }
 
   const handleCardClick = () => {
@@ -137,8 +138,7 @@ export function FundCard({ fund, index }: FundCardProps) {
             <button
                 onClick={handleAction}
             className={cn(
-                "flex-1 py-2.5 rounded-lg font-bold text-sm transition-all shadow-md bg-white text-gray-900 hover:text-white",
-                `hover:${theme.bgAccent}`
+                "flex-1 py-2.5 rounded-lg font-bold text-sm transition-all shadow-md bg-white text-gray-900 hover:text-white hover:bg-primary"
             )}
             >
             Invest Now
