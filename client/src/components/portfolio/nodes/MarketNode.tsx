@@ -10,25 +10,45 @@ interface MarketNodeProps {
     weight: number;
     pnl?: number;
     isHedge?: boolean;
+    isParlay?: boolean;
   };
 }
 
 export function MarketNode({ data }: MarketNodeProps) {
   const isHedge = data.isHedge;
-  const borderColor = isHedge ? 'border-red-500' : 'border-blue-500';
-  const bgColor = isHedge ? 'bg-red-500/10' : 'bg-blue-500/10';
-  const textColor = isHedge ? 'text-red-400' : 'text-blue-400';
+  const isParlay = data.isParlay;
+  
+  let borderColor = 'border-blue-500';
+  let bgColor = 'bg-blue-500/10';
+  let textColor = 'text-blue-400';
+  let handleColor = '!bg-blue-500';
+
+  if (isParlay) {
+      borderColor = 'border-purple-500';
+      bgColor = 'bg-purple-500/10';
+      textColor = 'text-purple-400';
+      handleColor = '!bg-purple-500';
+  } else if (isHedge) {
+      borderColor = 'border-red-500';
+      bgColor = 'bg-red-500/10';
+      textColor = 'text-red-400';
+      handleColor = '!bg-red-500';
+  }
 
   return (
     <div className={cn("bg-card-light dark:bg-card-dark border rounded-xl w-60 shadow-lg transition-all hover:shadow-xl", borderColor)}>
-      <Handle type="target" position={Position.Left} className={cn("!w-3 !h-5 !rounded-lg !border-none", isHedge ? "!bg-red-500" : "!bg-blue-500")} />
+      <Handle type="target" position={Position.Left} className={cn("!w-3 !h-5 !rounded-lg !border-none", handleColor)} />
       
       <div className="p-3">
         {/* Badge */}
         <div className="flex justify-between items-start mb-2">
-             <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase", bgColor, borderColor, textColor)}>
-                {isHedge ? 'HEDGE' : 'POSITION'}
-             </span>
+             <div className="h-5">
+                {(isHedge || isParlay) && (
+                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase", bgColor, borderColor, textColor)}>
+                        {isHedge ? 'HEDGE' : 'PARLAY'}
+                    </span>
+                )}
+             </div>
              <span className="text-[10px] font-mono text-gray-500">{data.prob}% Prob</span>
         </div>
 
@@ -62,7 +82,7 @@ export function MarketNode({ data }: MarketNodeProps) {
       </div>
       
       {/* Logic outputs could go here for chaining */}
-      <Handle type="source" position={Position.Right} className="!bg-gray-500 !w-2 !h-2" />
+      <Handle type="source" position={Position.Right} className={cn("!w-2 !h-2", handleColor)} />
     </div>
   );
 }
