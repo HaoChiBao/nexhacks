@@ -125,7 +125,58 @@ export function PortfolioStrategyMapView() {
   }, [funds, setNodes, setEdges]);
 
 
-  const onConnect = useCallback((params: Connection) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+  /* Recalculate Parlays when edges change */
+  useEffect(() => {
+    setNodes((currentNodes) => {
+        // Build adjacency map for market nodes
+        const adjacency = new Map<string, string[]>();
+        
+        edges.forEach(edge => {
+            // Only care about Market-to-Market edges? 
+            // Or Fund-to-Market? Parlay is usually a chain of markets.
+            // Let's assume Fund->Market is the "root" and doesn't count as a parlay link itself, 
+            // but Market->Market does.
+            if (edge.source.startsWith('mkt-') && edge.target.startsWith('mkt-')) {
+                if (!adjacency.has(edge.source)) adjacency.set(edge.source, []);
+                if (!adjacency.has(edge.target)) adjacency.set(edge.target, []);
+                
+                adjacency.get(edge.source)?.push(edge.target);
+                adjacency.get(edge.target)?.push(edge.source);
+            }
+        });
+
+        // Identify nodes involved in a chain (degree > 0 in the market-market graph)
+        // Actually, user said "lines that have 2 or move connects lines".
+        // Simplest interpretation: Any market node that has at least one connection to OTHER market nodes is part of a parlay chain.
+        // Wait, "2 or more connects lines". 
+        // If A -> B. That's 1 connection. Are they a parlay? Yes, usually A+B is a parlay.
+        // So any node in the adjacency map is part of a parlay.
+
+        return currentNodes.map(node => {
+            if (node.type !== 'market') return node;
+            
+            const isParlay = adjacency.has(node.id) && (adjacency.get(node.id)?.length || 0) > 0;
+            
+            // Only update if changed to avoid infinite loop
+            if (node.data.isParlay !== isParlay) {
+                return { 
+                    ...node, 
+                    data: { ...node.data, isParlay } 
+                };
+            }
+            return node;
+        });
+    });
+  }, [edges, setNodes]);
+
+
+  const onConnect = useCallback((params: Connection) => {
+      setEdges((eds) => addEdge({ 
+          ...params, 
+          animated: true, 
+          style: { stroke: '#a855f7', strokeWidth: 2 } // Purple for user made connections
+      }, eds))
+  }, [setEdges]);
 
   const onEdgeClick: EdgeMouseHandler = useCallback((event, edge) => {
       const ticker = edge.data?.ticker;

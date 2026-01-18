@@ -33,41 +33,67 @@ import {
 // ----------------------------------------------------------------------
 // Custom Node Component
 // ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// Custom Node Component
+// ----------------------------------------------------------------------
 const StrategyNode = ({ data }: { data: any }) => {
+    const isParlay = data.isParlay;
+    const isHedge = data.variant === 'hedge';
+    const isCore = data.variant === 'core';
+    
+    // Determine styles
+    let borderColor = 'border-gray-800';
+    let bgColor = data.variant === 'standard' ? "bg-[#121418]" : 
+                 data.variant === 'downstream' ? "bg-slate-900/90" : 
+                 "bg-[#121418]"; // default
+                 
+    if (isCore) {
+        bgColor = "bg-blue-950/80";
+        borderColor = "border-blue-500/50";
+    } else if (isParlay) {
+        bgColor = "bg-purple-900/20"; 
+        borderColor = "border-purple-500";
+    } else if (isHedge) {
+        bgColor = "bg-[#0A0A0A]";
+        borderColor = "border-red-500";
+    }
+
     return (
         <div className={cn(
             "relative p-4 rounded-xl border transition-all duration-300 shadow-2xl min-w-[180px]",
-            data.variant === 'core' && "bg-blue-950/80 border-blue-500/50 backdrop-blur-md w-[240px]",
-            data.variant === 'hedge' && "bg-[#0A0A0A] border-l-4 border-l-red-500 border-gray-800 w-[200px]",
-            data.variant === 'standard' && "bg-[#121418] border-gray-800 w-[180px]",
-            data.variant === 'downstream' && "bg-slate-900/90 border-slate-700 w-[200px]"
+            bgColor, borderColor,
+            isHedge && !isParlay && "border-l-4 border-l-red-500", // Only show red left border if strictly hedge and NOT parlay? Or keep it?
+            // User says "BOTH become parlays". Assuming complete visual override.
+            isCore && "backdrop-blur-md w-[240px]",
+            (isHedge || isParlay) && !isCore ? "w-[200px]" : "w-[180px]"
         )}>
             {/* Handles */}
-            <Handle type="target" position={Position.Left} className="!bg-gray-600 !w-2 !h-2" />
-            <Handle type="source" position={Position.Right} className="!bg-gray-600 !w-2 !h-2" />
+            <Handle type="target" position={Position.Left} className={cn("!w-2 !h-2", isParlay ? "!bg-purple-500" : "!bg-gray-600")} />
+            <Handle type="source" position={Position.Right} className={cn("!w-2 !h-2", isParlay ? "!bg-purple-500" : "!bg-gray-600")} />
 
             {/* Header / Badges */}
-            {data.variant === 'hedge' && (
-                <div className="flex justify-between items-center mb-2">
-                    <span className="text-[10px] font-bold text-red-500 uppercase">Hedge</span>
-                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                </div>
-            )}
-            {data.variant === 'core' && (
-                <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-between items-center mb-2 h-5">
+                 {isParlay && (
+                    <span className="text-[10px] font-bold text-purple-400 uppercase bg-purple-500/10 px-1 rounded border border-purple-500/50">Parlay</span>
+                 )}
+                 {isHedge && !isParlay && (
+                    <>
+                        <span className="text-[10px] font-bold text-red-500 uppercase">Hedge</span>
+                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    </>
+                 )}
+                 {isCore && (
                     <span className="text-[10px] font-bold text-blue-400 uppercase">Core Thesis</span>
-                </div>
-            )}
-            {data.variant === 'standard' && (
-                <div className="flex items-center gap-2 mb-1">
+                 )}
+                 {data.variant === 'standard' && !isParlay && (
                     <span className="px-1.5 py-0.5 bg-gray-800 text-[10px] rounded text-gray-300">PM</span>
-                </div>
-            )}
+                 )}
+            </div>
 
             {/* Title */}
             <h4 className={cn(
                 "font-bold text-white mb-1 leading-tight",
-                data.variant === 'core' ? "text-lg mb-2" : "text-sm"
+                isCore ? "text-lg mb-2" : "text-sm"
             )}>{data.title}</h4>
 
             {/* Metrics */}
@@ -94,6 +120,7 @@ const StrategyNode = ({ data }: { data: any }) => {
         </div>
     );
 };
+
 
 // ----------------------------------------------------------------------
 // Node Data Configuration
@@ -155,10 +182,17 @@ const getInitials = (name: string) => {
     return name.slice(0, 2).toUpperCase();
 };
 
+// Need to import useNodesState/useEdgesState/addEdge
+import { useNodesState, useEdgesState, addEdge, Connection, useReactFlow } from 'reactflow';
+
 export default function FundDetailsPage({ params }: { params: { fundId: string } }) {
   console.log("🚀 MOUNTING FUND DETAILS PAGE. ID:", params.fundId); 
   const { funds, fetchFunds, fetchFund, isLoading: isStoreLoading } = useFundStore();
   
+  // React Flow State
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
   // Local state for initial load check if store is empty
   const [initialFetchDone, setInitialFetchDone] = useState(false);
 
@@ -179,9 +213,17 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
 
   const nodeTypes = useMemo(() => ({ strategyNode: StrategyNode }), []);
 
-  // Generate dynamic nodes based on holdings
-  const { nodes, edges } = useMemo(() => {
-    if (!fund) return { nodes: initialNodes, edges: initialEdges };
+  // Sync Nodes/Edges when fund loads
+  // We only run this when fund changes and we haven't set up the graph for it yet
+  // OR we can just reset it once when found.
+  // To preserve dragging, we shouldn't constantly reset.
+  useEffect(() => {
+    if (!fund) return;
+
+    // Check if we already have nodes for this fund to avoid resetting (basic check)
+    // Actually, simple way: Just do it once per valid fund ID?
+    // Let's assume stability: if ID matches, don't reset.
+    // But for now, let's just create them.
 
     const flowNodes: Node[] = [];
     const flowEdges: Edge[] = [];
@@ -209,7 +251,8 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
                 variant: holding.side === 'NO' ? 'hedge' : 'standard', 
                 title: holding.name, 
                 prediction: holding.side, 
-                price: `${holding.prob}¢` 
+                price: `${holding.prob}¢`,
+                isParlay: false
             },
         });
 
@@ -219,13 +262,156 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
             target: id,
             type: 'smoothstep',
             animated: true,
-            style: { stroke: '#gray' },
-             markerEnd: { type: MarkerType.ArrowClosed } 
+            style: { stroke: '#4b5563' }, // Gray
+            markerEnd: { type: MarkerType.ArrowClosed } 
         });
     });
 
-    return { nodes: flowNodes, edges: flowEdges };
-  }, [fund]);
+    setNodes(flowNodes);
+    setEdges(flowEdges);
+  }, [fund, setNodes, setEdges]);
+
+
+  // Parlay State
+  const [parlayGroups, setParlayGroups] = useState<Node[][]>([]);
+
+  // Parlay Detection Logic
+  const onConnect = (params: Connection) => setEdges((eds) => addEdge({
+      ...params,
+      animated: true,
+      style: { stroke: '#a855f7', strokeWidth: 2, cursor: 'pointer' }, // Purple
+      data: { isUserCreated: true }
+  }, eds));
+
+  // Remove edge on click if it's user-created
+  const onEdgeClick = (event: React.MouseEvent, edge: Edge) => {
+      if (edge.style?.stroke === '#a855f7') {
+          setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      }
+  };
+
+  useEffect(() => {
+    setNodes((currentNodes) => {
+        const adjacency = new Map<string, string[]>();
+        
+        // Build graph
+        edges.forEach(edge => {
+            if (edge.source === 'core' || edge.target === 'core') return;
+
+            if (!adjacency.has(edge.source)) adjacency.set(edge.source, []);
+            if (!adjacency.has(edge.target)) adjacency.set(edge.target, []);
+            
+            adjacency.get(edge.source)?.push(edge.target);
+            adjacency.get(edge.target)?.push(edge.source);
+        });
+
+        // 1. Update Nodes Visuals
+        const newNodes = currentNodes.map(node => {
+            if (node.id === 'core') return node;
+
+            const degree = adjacency.get(node.id)?.length || 0;
+            const isParlay = degree > 0;
+
+            if (node.data.isParlay !== isParlay) {
+                return { ...node, data: { ...node.data, isParlay } };
+            }
+            return node;
+        });
+
+        // 2. Identify Parlay Groups (Connected Components)
+        const visited = new Set<string>();
+        const groups: Node[][] = [];
+
+        newNodes.forEach(node => {
+            if (node.id === 'core') return;
+            if (visited.has(node.id)) return;
+            // Only care about nodes that have connections (are parlays)
+            if (!node.data.isParlay) return;
+
+            // BFS/DFS to find component
+            const component: Node[] = [];
+            const queue = [node.id];
+            visited.add(node.id); // Mark as visited immediately
+
+            while (queue.length > 0) {
+                const currentId = queue.shift()!;
+                const currentNode = newNodes.find(n => n.id === currentId);
+                if (currentNode) component.push(currentNode);
+
+                const neighbors = adjacency.get(currentId) || [];
+                neighbors.forEach(neighborId => {
+                    if (!visited.has(neighborId)) {
+                        visited.add(neighborId);
+                        queue.push(neighborId);
+                    }
+                });
+            }
+
+            if (component.length > 1) {
+                groups.push(component);
+            }
+        });
+
+        // Avoid infinite loop by checking deep equality or just setting it?
+        // JSON stringify is cheap enough for small arrays
+        // We need to call setParlayGroups inside the effect, but outside the setNodes callback? 
+        // No, we can't side-effect inside reducer.
+        // We should move this logic out or use a ref/separate effect?
+        // Actually, let's just do it in a separate effect dependent on nodes/edges?
+        // But we are INSIDE setNodes here.
+        
+        return newNodes;
+    });
+  }, [edges, setNodes]);
+
+  // Separate effect for strictly grouping (dependent on nodes/edges changing)
+  // This avoids the 'reducer side effect' anti-pattern.
+  useEffect(() => {
+      // Re-run grouping logic
+      const adjacency = new Map<string, string[]>();
+      edges.forEach(edge => {
+            if (edge.source === 'core' || edge.target === 'core') return;
+            if (!adjacency.has(edge.source)) adjacency.set(edge.source, []);
+            if (!adjacency.has(edge.target)) adjacency.set(edge.target, []);
+            adjacency.get(edge.source)?.push(edge.target);
+            adjacency.get(edge.target)?.push(edge.source);
+      });
+
+      const visited = new Set<string>();
+      const groups: Node[][] = [];
+
+      nodes.forEach(node => {
+            if (node.id === 'core') return;
+            // We can trust the 'isParlay' data we computed in the previous effect (since it runs on edges change too)
+            // Or just re-compute connectivity. Re-computing is safer.
+            const hasNeighbors = (adjacency.get(node.id)?.length || 0) > 0;
+            if (!hasNeighbors) return;
+            if (visited.has(node.id)) return;
+
+            const component: Node[] = [];
+            const queue = [node.id];
+            visited.add(node.id);
+
+            while (queue.length > 0) {
+                const currentId = queue.shift()!;
+                const currentNode = nodes.find(n => n.id === currentId);
+                if (currentNode) component.push(currentNode);
+
+                const neighbors = adjacency.get(currentId) || [];
+                neighbors.forEach(neighborId => {
+                    if (!visited.has(neighborId)) {
+                        visited.add(neighborId);
+                        queue.push(neighborId);
+                    }
+                });
+            }
+            if (component.length > 1) groups.push(component);
+      });
+      
+      // Only update if different? 
+      // For now just set it, React enables batching usually.
+      setParlayGroups(groups);
+  }, [nodes, edges]);
 
 
   if (isStoreLoading && !initialFetchDone) {
@@ -255,6 +441,14 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
 
   // Fallback for types if fund is loading
   if (!fund) return null; 
+
+  // Helper to identify which holdings are in a parlay
+  const holdingsInParlay = new Set<string>(); // using titles or tickers
+  parlayGroups.forEach(group => {
+      group.forEach(node => {
+          holdingsInParlay.add(node.data.title);
+      });
+  });
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] p-4 lg:p-6 font-sans text-gray-100 flex flex-col gap-6">
@@ -346,6 +540,10 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onEdgeClick={onEdgeClick}
                 nodeTypes={nodeTypes}
                 fitView
                 proOptions={{ hideAttribution: true }}
@@ -371,7 +569,13 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
 
             <div className="flex-grow overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                 
-                {fund.holdings.map((holding, i) => (
+                {/* 1. Parlay Cards */}
+                {parlayGroups.map((group, i) => (
+                    <ParlayCard key={`parlay-${i}`} nodes={group} />
+                ))}
+
+                {/* 2. Individual Bet Cards (excluding those in parlay) */}
+                {fund.holdings.filter(h => !holdingsInParlay.has(h.name)).map((holding, i) => (
                     <BetCard 
                         key={i}
                         title={holding.name}
@@ -381,6 +585,7 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
                         isOver={false}
                         type={holding.side === 'YES' ? 'Yes' : 'No'}
                         initialAlloc={holding.allocation}
+                        ticker={holding.ticker}
                     />
                 ))}
 
@@ -404,16 +609,74 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
 }
 
 // ----------------------------------------------------------------------
-// Sub-Components (BetCard) - Kept Same
+// Sub-Components
 // ----------------------------------------------------------------------
 
-function BetCard({ title, line, price, description, isOver, type, initialAlloc = 0 }: any) {
+function ParlayCard({ nodes }: { nodes: Node[] }) {
+    return (
+        <div className="bg-purple-900/10 border border-purple-500/50 rounded-xl p-5 relative group transition-colors">
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-3">
+                 <Zap className="w-4 h-4 text-purple-400" />
+                 <h3 className="font-bold text-base text-purple-200 leading-tight">ACTIVE PARLAY</h3>
+            </div>
+
+            <div className="space-y-3 mb-4">
+                {nodes.map((node, i) => (
+                    <div key={i} className="bg-gray-900/50 p-3 rounded-lg border border-purple-500/20">
+                         <div className="flex justify-between items-start mb-1">
+                             <div className="text-xs text-gray-300 font-medium line-clamp-2 w-[70%]">
+                                {node.data.title}
+                             </div>
+                             <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded uppercase", 
+                                node.data.prediction === 'YES' ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400")}>
+                                {node.data.prediction} • {node.data.price}
+                             </span>
+                         </div>
+                         <a 
+                            href={`https://polymarket.com/?q=${encodeURIComponent(node.data.title)}`} 
+                            target="_blank"
+                            className="text-[10px] text-purple-400 hover:text-purple-300 flex items-center gap-1 mt-1"
+                         >
+                            View Market <ExternalLink className="w-2.5 h-2.5" />
+                         </a>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex justify-between items-center text-xs font-bold text-gray-400 mb-2">
+                 <span>Combined Odds (Est)</span>
+                 <span className="text-white font-mono">
+                     {/* Just a mock multiplier for demo */}
+                     {(nodes.reduce((acc, n) => acc * (parseFloat(n.data.price || '0')/100), 1) * 100).toFixed(1)}%
+                 </span>
+            </div>
+
+            <button className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold text-xs transition-colors shadow-lg shadow-purple-900/20">
+                Place Parlay Bet
+            </button>
+        </div>
+    )
+}
+
+function BetCard({ title, line, price, description, isOver, type, initialAlloc = 0, ticker }: any) {
     const [confirmed, setConfirmed] = useState(false);
     const [allocation, setAllocation] = useState(initialAlloc);
 
     const handleConfirm = () => {
         setConfirmed(true);
     };
+
+    // Construct URL: Use ticker if available, else usage title search
+    const marketUrl = ticker 
+        ? `https://polymarket.com/event/${ticker}` // If ticker is a slug
+        : `https://polymarket.com/?q=${encodeURIComponent(title)}`; 
+
+    // Note: 'ticker' in holding might be a symbol (e.g. TRUMP) which isn't a direct URL slug usually.
+    // The safest is search query or generic event page if we had IDs.
+    // Given the data, let's use search query for robustness unless we know ticker is a slug.
+    // Reverting to search query for safety.
+    const safeMarketUrl = `https://polymarket.com/?q=${encodeURIComponent(title)}`;
 
     if (confirmed) {
         return (
@@ -434,7 +697,7 @@ function BetCard({ title, line, price, description, isOver, type, initialAlloc =
                      <Activity className="w-4 h-4 text-primary" />
                      <h3 className="font-bold text-base text-white leading-tight max-w-[150px]">{title}</h3>
                 </div>
-                <a href="https://polymarket.com" target="_blank" className="p-1.5 bg-gray-800 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
+                <a href={safeMarketUrl} target="_blank" className="p-1.5 bg-gray-800 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
                      <ExternalLink className="w-3.5 h-3.5" />
                 </a>
             </div>
