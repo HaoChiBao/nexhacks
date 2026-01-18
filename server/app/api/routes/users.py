@@ -45,13 +45,16 @@ def get_user_profile(user_id: str):
                     # Filter for investments (heuristic: has fund_id and amount)
                     if row.get("fund_id") and float(row.get("invested_amount", 0)) > 0:
                         investments.append({
-                            "id": row.get("fund_id"), # Link to public fund
+                            # User Requested Schema
                             "fund_id": row.get("fund_id"),
-                            "name": row.get("name"),
+                            "pnl_percent": float(row.get("pnl_percent") or 0), # Assuming column exists or 0
+                            "purchase_date": row.get("created_at"),  # Using creation time as purchase date
                             "invested_amount": float(row.get("invested_amount", 0)),
+                            
+                            # Frontend Compatibility Keys
+                            "id": row.get("fund_id"), 
+                            "name": row.get("name"),
                             "current_value": float(row.get("current_value") or row.get("invested_amount", 0)),
-                            "invested_at": row.get("created_at"),
-                            "pnl_percent": 0 # TODO: Calculate real PnL
                         })
                 
                 # If we found investments in user_funds, they take precedence over the JSON blob

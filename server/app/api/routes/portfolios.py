@@ -65,47 +65,51 @@ def invest_in_fund(req: InvestRequest):
              raise HTTPException(status_code=400, detail="Insufficient balance")
         print("✅ Balance sufficient.")
              
-        # 3. Update Portfolio Structure (Legacy/Compatibility)
+        # 3. Update Portfolio Structure (JSON List)
+        # Expected Format: [{ "fund_id": "...", "pnl_percent": ..., "purchase_date": "...", "invested_amount": ... }]
+        
         raw_portfolio = profile.get("portfolio")
         
+        # Normalize to list
         if raw_portfolio is None:
-            portfolio = {"funds": []}
+            portfolio = []
         elif isinstance(raw_portfolio, list):
-            portfolio = {"funds": raw_portfolio}
-        elif isinstance(raw_portfolio, dict):
             portfolio = raw_portfolio
+        elif isinstance(raw_portfolio, dict):
+             # Handle legacy { "funds": [...] }
+            portfolio = raw_portfolio.get("funds", [])
+            if not isinstance(portfolio, list):
+                portfolio = []
         else:
-            portfolio = {"funds": []}
+            portfolio = []
 
-        funds = portfolio.get("funds", [])
-        if not isinstance(funds, list):
-            funds = []
+        # Find existing investment
+        from datetime import datetime
         
-        # Check if already invested
-        existing_idx = next((i for i, f in enumerate(funds) if isinstance(f, dict) and f.get("id") == req.fund_id), -1)
+        existing_item = next((item for item in portfolio if isinstance(item, dict) and item.get("fund_id") == req.fund_id), None)
         
-        if existing_idx >= 0:
-            funds[existing_idx]["invested_amount"] = funds[existing_idx].get("invested_amount", 0) + req.amount
-            funds[existing_idx]["current_value"] = funds[existing_idx].get("current_value", 0) + req.amount
+        if existing_item:
+            # Update existing
+            current_amt = float(existing_item.get("invested_amount", 0))
+            existing_item["invested_amount"] = current_amt + req.amount
+            # Preserve purchase_date and pnl_percent
         else:
-            funds.append({
-                "id": req.fund_id,
-                "name": req.fund_name,
-                "logo": req.fund_logo or "", 
-                "invested_amount": req.amount,
-                "current_value": req.amount,
-                "shares": req.amount / 10.0, 
-                "invested_at": "Today" 
-            })
+            # Add new
+            new_item = {
+                "fund_id": req.fund_id,
+                "pnl_percent": 0,   # Default
+                "purchase_date": datetime.utcnow().isoformat(),
+                "invested_amount": req.amount
+            }
+            portfolio.append(new_item)
             
-        portfolio["funds"] = funds
         new_balance = current_balance - req.amount
         
         # 4. Save updates to Profile
-        print("Step 3: Updating Profile Balance & Portfolio Blob...")
+        print("Step 3: Updating Profile Balance & Portfolio JSON...")
         update_res = supabase.table("profiles").update({
             "balance": new_balance,
-            "portfolio": portfolio
+            "portfolio": portfolio # Now a list, matching request
         }).eq("id", req.user_id).execute()
         print("✅ Profile updated.")
 
