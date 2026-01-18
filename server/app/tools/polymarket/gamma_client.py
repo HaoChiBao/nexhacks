@@ -15,7 +15,44 @@ KNOWN_TAGS = {
     "basketball": "100301", # Olympic/General
     "sports": "1",
     "nfl": "450",
-    "football": "102160", # NCAA/General
+    "football": "102160",
+    # NBA Teams (Harvested via API)
+    "lakers": "174",
+    "la lakers": "174",
+    "celtics": "190",
+    "warriors": "32",
+    "knicks": "33",
+    "nets": "109",
+    "sixers": "43",
+    "76ers": "43",
+    "bulls": "59",
+    "heat": "117",
+    "bucks": "745", # Fallback to NBA if specific tag low volume
+    "hawks": "125",
+    "hornets": "745", # Fallback
+    "wizards": "745", # Fallback
+    "magic": "116",
+    "cavaliers": "221",
+    "cavs": "221",
+    "pistons": "30",
+    "pacers": "155",
+    "raptors": "54",
+    "clippers": "34",
+    "kings": "49",
+    "suns": "745", # Fallback
+    "mavericks": "77", 
+    "mavs": "101770", # Alternative tag
+    "spurs": "745", # Fallback
+    "rockets": "48",
+    "grizzlies": "745", # Fallback
+    "pelicans": "29",
+    "timberwolves": "121",
+    "wolves": "121",
+    "nuggets": "745", # Fallback
+    "thunder": "31",
+    "jazz": "122",
+    "blazers": "45",
+    "trail blazers": "45",
     # Crypto
     "crypto": "21",
     "bitcoin": "235",
@@ -64,7 +101,37 @@ KNOWN_TAGS = {
     "apex legends": "103126",
     "starcraft": "103064",
     "valorant": "101672",
-    "overwatch": "102753"
+    "overwatch": "102753",
+    # Stocks / Finance
+    "stocks": "604",
+    "stock market": "604",
+    "investing": "603",
+    "ipo": "600",
+    "ipos": "600",
+    "economy": "100328",
+    "finance": "120", # Assumed based on previous scans or logical fallback
+    "sp500": "604", # Fallback to Stocks
+    "nasdaq": "604", # Fallback
+    "nvidia": "604", # Fallback
+    "nvda": "604",
+    "tesla": "728",
+    "tsla": "728",
+    "amazon": "824",
+    "amzn": "824",
+    "microsoft": "1098",
+    "msft": "1098",
+    "meta": "101647", # Meta Platforms
+    "facebook": "1564",
+    "apple": "604", # Fallback (Apple Music ID 1347 is wrong context)
+    "aapl": "604",
+    "google": "1100", # Alphabet
+    "goog": "1100",
+    "alphabet": "1100",
+    "netflix": "604", # Fallback
+    "gamestop": "100250",
+    "gme": "100250",
+    "coinbase": "800",
+    "coin": "800"
 }
 
 async def resolve_semantic_tag(query: str, available_tags: List[str]) -> Optional[str]:

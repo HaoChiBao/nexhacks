@@ -26,12 +26,22 @@ async def test_tags():
         except Exception as e:
             print(f"Error: {e}")
 
-        # 3. Deep Scan (2000-5000) for missing gaming tags
-        print("\n--- Deep Scanning Tags (Pages 20-50) ---")
-        targets = ["valorant", "overwatch", "cs2", "counter strike 2"]
+        # 3. Targeted Scan for Stocks / Finance
+        print("\n--- Scanning for Stocks & Finance ---")
+        targets = [
+            # General
+            "stocks", "stock market", "finance", "economy", "economics", "investing", "ipo",
+            # Indices
+            "sp500", "s&p 500", "nasdaq", "dow jones",
+            # Major Tickers / Companies
+            "nvidia", "nvda", "tesla", "tsla", "apple", "aapl", 
+            "microsoft", "msft", "amazon", "amzn", "google", "goog", "alphabet",
+            "meta", "facebook", "netflix", "nflx",
+            "gamestop", "gme", "amc", "coinbase", "coin"
+        ]
         found_map = {}
         
-        for offset in range(2000, 5000, 100):
+        for offset in range(0, 3000, 100):
             try:
                 # print(f"Fetching offset {offset}...")
                 resp = await client.get(f"{BASE_URL}/tags", params={"limit": 100, "offset": offset})
