@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, FileText, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DocumentPreviewModal } from "../DocumentPreviewModal";
+import { supabase } from "@/lib/supabase";
 
 export function FinalizeStage() {
   const { draft, updateDraft, setStage } = useFundBuilderStore();
   const router = useRouter();
 
+  const [isPublishing, setIsPublishing] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<{
     isOpen: boolean;
     title: string;
@@ -23,15 +25,49 @@ export function FinalizeStage() {
     filename: "",
   });
 
-  const handlePublish = () => {
-    // In a real app, this would save to DB.
-    // Here we just mark as published and redirect.
-    updateDraft({ status: 'PUBLISHED' });
+  const handlePublish = async () => {
+    setIsPublishing(true);
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+            alert("You must be logged in to publish a fund.");
+            return;
+        }
 
-    // Simulate API call
-    setTimeout(() => {
-      router.push(`/funds`);
-    }, 1000);
+        const fundData = {
+            id: draft.id,
+            name: draft.name,
+            thesis: draft.thesis,
+            status: 'Live',
+            holdings: draft.holdings,
+            tags: [draft.category, draft.cadence], 
+            owner_id: user.id,
+            created_by: user.user_metadata?.full_name || user.email || 'Anonymous',
+            returns_month: 0,
+            returns_inception: 0,
+            liquidity_score: draft.riskRules.minLiquidityScore || 50,
+            aum: 0,
+            nav: 10,  // Stating NAV $10
+            max_drawdown: 0,
+            top_concentration: Math.max(...draft.holdings.map(h => h.targetWeight)) || 0,
+            sharpe: 0
+        };
+
+        const { error } = await supabase.from('funds').insert(fundData);
+        if (error) throw error;
+
+        updateDraft({ status: 'PUBLISHED' });
+        
+        // Redirect to the new fund page
+        router.push(`/funds/${draft.id}`);
+
+    } catch (err: any) {
+        console.error("Error publishing fund:", err);
+        alert(`Failed to publish fund: ${err.message}`);
+    } finally {
+        setIsPublishing(false);
+    }
   };
 
   const openPreview = (type: "summary" | "allocation" | "pdf") => {
