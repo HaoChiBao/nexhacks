@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/shell/Navbar';
 import { InvestDrawer } from '@/components/invest/InvestDrawer';
+import { AuthProvider } from '@/components/providers/AuthProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -25,13 +26,15 @@ export default function RootLayout({
           <div className="absolute bottom-[-10%] right-[10%] w-[400px] h-[400px] bg-emerald-900/10 rounded-full blur-[100px]"></div>
         </div>
 
-        <Navbar />
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-64px)]">
-          {children}
-        </main>
-        
-        {/* Global Drawers */}
-        <InvestDrawer />
+        <AuthProvider>
+          <Navbar />
+          <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-64px)]">
+            {children}
+          </main>
+          
+          {/* Global Drawers */}
+          <InvestDrawer />
+        </AuthProvider>
       </body>
     </html>
   );

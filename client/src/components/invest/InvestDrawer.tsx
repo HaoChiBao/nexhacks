@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -9,13 +10,16 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useAppStore } from "@/store/useAppStore";
-import { funds } from "@/lib/data/funds";
+import { useAuthStore } from "@/store/useAuthStore";
+// import { funds } from "@/lib/data/funds"; // Removed mock import
+import { useFundStore } from "@/store/useFundStore"; // Use store instead
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import * as Switch from "@radix-ui/react-switch";
 import { Info, Lock, Clock, TrendingUp, AlertTriangle } from "lucide-react";
 
 export function InvestDrawer() {
+  const router = useRouter();
   const {
     investDrawerOpen,
     closeInvestDrawer,
@@ -24,6 +28,9 @@ export function InvestDrawer() {
     isLiveMode,
     addDeposit,
   } = useAppStore();
+  const { user } = useAuthStore();
+  const { funds } = useFundStore(); // Get funds from store
+
   const [amount, setAmount] = useState<number>(2500);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -44,17 +51,28 @@ export function InvestDrawer() {
   };
 
   const handleInvest = () => {
+    if (!user) {
+        // Redirect to login if called (though button should handle this)
+        router.push('/login');
+        closeInvestDrawer();
+        return;
+    }
+
     if (!agreeTerms) return;
     setIsProcessing(true);
     setTimeout(() => {
-        addDeposit(-amount); // Deduct balance mock
+        addDeposit(-amount); // Deduct balance mock (sync with DB later)
         setIsProcessing(false);
         closeInvestDrawer();
         alert(isLiveMode ? "Transaction Requested" : "Simulated Deposit Created");
     }, 1500);
   };
 
-  const liquidityWarning = fund.metrics.liquidityScore < 60;
+  const handleLoginRedirect = () => {
+     closeInvestDrawer();
+     router.push('/login');
+  }
+
   const slippage = Math.min((amount / 10000) * 0.4, 2.5).toFixed(2);
 
   return (
@@ -72,13 +90,7 @@ export function InvestDrawer() {
               <TrendingUp className="text-primary w-6 h-6" /> Invest Flow
             </SheetTitle>
             <SheetDescription className="text-xs text-gray-400 mt-1 uppercase tracking-wide font-semibold flex items-center gap-2">
-              Fund ID: {fund.id.toUpperCase()}{" "}
-              <span className="w-1 h-1 rounded-full bg-gray-500"></span>
-              {fund.status === "Live" ? (
-                <span className="text-emerald-500">Live</span>
-              ) : (
-                <span className="text-yellow-500">{fund.status}</span>
-              )}
+              Fund ID: {fund.id.toUpperCase()}
             </SheetDescription>
           </div>
         </div>
@@ -111,13 +123,6 @@ export function InvestDrawer() {
               <label className="block text-sm font-medium text-gray-300">
                 Investment Amount
               </label>
-              {liquidityWarning && (
-                <div className="flex gap-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                    <AlertTriangle className="w-3 h-3" /> Liquidity Warning
-                  </span>
-                </div>
-              )}
             </div>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -129,6 +134,7 @@ export function InvestDrawer() {
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
+                disabled={!user} // Disable input if not logged in
               />
               <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
                 <span className="text-xs text-gray-500 font-bold uppercase tracking-wider bg-surface-hover px-2 py-1 rounded">
@@ -159,6 +165,7 @@ export function InvestDrawer() {
                     value={amount} 
                     onChange={(e) => setAmount(Number(e.target.value))}
                     className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-primary"
+                    disabled={!user}
                 />
               <div className="flex justify-between mt-4">
                 {[25, 50, 75, 100].map((pct) => (
@@ -166,6 +173,7 @@ export function InvestDrawer() {
                     key={pct}
                     onClick={() => setAmount(Math.floor(balance * (pct / 100)))}
                     className="px-4 py-1.5 rounded-lg border border-border-dark bg-surface-hover/50 hover:bg-surface-hover hover:border-gray-600 text-xs font-medium text-gray-400 transition-colors"
+                    disabled={!user}
                   >
                     {pct}%
                   </button>
@@ -215,6 +223,7 @@ export function InvestDrawer() {
               checked={agreeTerms}
               onChange={(e) => setAgreeTerms(e.target.checked)}
               className="rounded border-gray-600 text-primary focus:ring-primary bg-background-dark w-5 h-5 cursor-pointer"
+              disabled={!user}
             />
             <label
               htmlFor="terms"
@@ -227,25 +236,36 @@ export function InvestDrawer() {
               .
             </label>
           </div>
-          <button
-            disabled={!agreeTerms || isProcessing}
-            onClick={handleInvest}
-            className={cn(
-                "w-full font-bold py-4 px-6 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transform transition-all active:scale-[0.98] flex items-center justify-between group border border-transparent hover:border-emerald-400/30",
-                isProcessing || !agreeTerms ? "bg-gray-700 text-gray-400 cursor-not-allowed shadow-none" : "bg-primary hover:bg-emerald-600 text-white"
-            )}
-           >
-            <span className="flex flex-col items-start">
-              <span className="text-sm font-normal text-emerald-100">
-                {isProcessing ? "Processing..." : isLiveMode ? "Invest Total" : "Simulate Total"}
-              </span>
-              <span className="text-lg">${(amount + 2.45).toFixed(2)}</span>
-            </span>
-            <div className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-lg">
-              <span>Confirm</span>
-              <TrendingUp className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </button>
+          
+          {user ? (
+            <button
+                disabled={!agreeTerms || isProcessing}
+                onClick={handleInvest}
+                className={cn(
+                    "w-full font-bold py-4 px-6 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transform transition-all active:scale-[0.98] flex items-center justify-between group border border-transparent hover:border-emerald-400/30",
+                    isProcessing || !agreeTerms ? "bg-gray-700 text-gray-400 cursor-not-allowed shadow-none" : "bg-primary hover:bg-emerald-600 text-white"
+                )}
+            >
+                <span className="flex flex-col items-start">
+                <span className="text-sm font-normal text-emerald-100">
+                    {isProcessing ? "Processing..." : isLiveMode ? "Invest Total" : "Simulate Total"}
+                </span>
+                <span className="text-lg">${(amount + 2.45).toFixed(2)}</span>
+                </span>
+                <div className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-lg">
+                <span>Confirm</span>
+                <TrendingUp className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
+            </button>
+          ) : (
+            <button
+                onClick={handleLoginRedirect}
+                className="w-full font-bold py-4 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transform transition-all active:scale-[0.98] shadow-lg flex items-center justify-center gap-2"
+            >
+                <span>Login to Invest</span>
+            </button>
+          )}
+
         </div>
       </SheetContent>
     </Sheet>

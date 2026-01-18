@@ -4,16 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { Switch } from "@/components/ui/switch";
-import { Bell, Menu, Search } from "lucide-react";
+import { Bell, Menu, Search, LogOut } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
+import { UserAvatar } from "@/components/ui/user-avatar";
+import { Button } from "@/components/ui/button";
 
 export function Navbar() {
   const pathname = usePathname();
   const { isLiveMode, toggleLiveMode, balance } = useAppStore();
+  const { user, signOut } = useAuthStore();
 
   const navLinks = [
     { name: "Explore Funds", href: "/funds" },
+    { name: "Create Fund", href: "/create-fund" },
     { name: "Portfolio", href: "#" },
     { name: "Predictions", href: "#" },
     { name: "Audit Logs", href: "/audit" },
@@ -80,17 +85,26 @@ export function Navbar() {
 
             {/* User Profile */}
             <div className="flex items-center gap-3 pl-4 border-l border-border-dark">
-              <div className="text-right hidden lg:block">
-                <p className="text-xs text-gray-400">Available Balance</p>
-                <p className="text-sm font-semibold text-white">
-                  ${balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <img
-                alt="User avatar"
-                className="h-8 w-8 rounded-full border border-gray-700 object-cover"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGLQypHX8cVI-p9t-O1XesSr9lDpf2LiJl0-D_9sqlasd79RLLVF5O5pm5zMrdgFhhily3-zM26PPlEqh3k4ZMvBwevYLQYvQv0VqGHADEMtWvuSgstsMX0C-R8s_mWCjdqaaMlSJFmCWQBv5wShizK4Dxe1nfmwI5AYTI9yPa_I6jSbGQ6o4WhKHi-3BoJ5g7sv5QWqC5Rn7QTg_S7qXW9OkjhNtAJgwE82ey5FiZs4NJSp8DQ8LtjkJ8i9UuhUelum5O-opUB3Qi"
-              />
+              {user ? (
+                <>
+                  <div className="text-right hidden lg:block">
+                    <p className="text-xs text-gray-400">Available Balance</p>
+                    <p className="text-sm font-semibold text-white">
+                      ${balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <UserAvatar user={user} className="cursor-pointer" />
+                  <Button variant="ghost" size="icon" onClick={() => signOut()} title="Sign out">
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <Link href="/login">
+                  <Button variant="default" size="sm">
+                    Login
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 

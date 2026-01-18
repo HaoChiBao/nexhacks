@@ -1,8 +1,49 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useFundBuilderStore } from '@/store/useFundBuilderStore';
+import { FundBuilderLayout } from '@/components/fund-builder/FundBuilderLayout';
+import { ResearchStage } from '@/components/fund-builder/stages/1-ResearchStage';
+import { LinePopulationStage } from '@/components/fund-builder/stages/2-LinePopulationStage';
+import { WeightingStage } from '@/components/fund-builder/stages/3-WeightingStage';
+import { FinalizeStage } from '@/components/fund-builder/stages/4-FinalizeStage';
+
 export default function CreateFundPage() {
+  const { currentStage } = useFundBuilderStore();
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch for persisted store
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-background">
+            <div className="text-emerald-500 animate-pulse">Loading Builder...</div>
+        </div>
+    );
+  }
+
+  const renderStage = () => {
+    switch (currentStage) {
+      case 'RESEARCH':
+        return <ResearchStage />;
+      case 'LINE_POPULATION':
+        return <LinePopulationStage />;
+      case 'WEIGHTING':
+        return <WeightingStage />;
+      case 'FINALIZE':
+        return <FinalizeStage />;
+      default:
+        return <ResearchStage />;
+    }
+  };
+
   return (
-    <div className="container mx-auto p-12 text-center text-gray-400">
-      <h1 className="text-2xl font-bold text-white mb-4">Create Fund Application</h1>
-      <p>This feature is coming soon to the PrintMoney protocol.</p>
-    </div>
+    <FundBuilderLayout currentStage={currentStage}>
+      {renderStage()}
+    </FundBuilderLayout>
   );
 }
+
