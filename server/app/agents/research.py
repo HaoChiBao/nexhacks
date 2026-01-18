@@ -16,28 +16,92 @@ async def research_node(state: AgentState) -> AgentState:
     3. Extract content from top results
     4. Synthesize with LLM
     """
-    pf = state["portfolio"]
-    print(f"--- [Research Node] 🧠 Analyst: Starting research for '{pf.name}'...")
-    print(f"--- [Research Node] 🔍 Searching news for keywords: {pf.keywords}")
-    
-    # 1. Search
-    evidence_items = []
-    # Search for first 2 keywords
-    for kw in pf.keywords[:2]:
-        results = await search_news(kw)
-        evidence_items.extend(results)
-    
-    # 2. Extract - Enrich the top 2 results with full text
-    limit = 2
-    print(f"--- [Research Node] 📖 extracting full text from {min(len(evidence_items), limit)} articles...")
-    for item in evidence_items[:limit]:
-        if item.get("url"):
-            content = await extract_article_content(item["url"])
-            if content:
-                item["content"] = content
+    from app.utils.logger import AgentLogger
 
+    # Initialize Logger
+    if "structured_logs" not in state:
+        state["structured_logs"] = []
+    logger = AgentLogger("Research Agent", state["structured_logs"])
+    
+    pf = state["portfolio"]
+    logger.start(f"Starting research for '{pf.name}'")
+    logger.think(f"Strategy: I will search for {pf.keywords} to gather broad context, then use LLM to synthesize findings into an investment thesis.")
+    
+    # 1. Search Phase
+    # We want a diverse pool, so we search for ALL keywords first
+    candidate_pools = {} # {keyword: [articles]}
+    total_candidates = 0
+    
+    # Use top 5 keywords to avoid explosion but ensure diversity
+    target_keywords = pf.keywords[:5] 
+    
+    for kw in target_keywords:
+        logger.think(f"Hypothesis: Searching for '{kw}' will reveal broad market sentiment and potential catalysts.")
+        logger.think(f"Action: Querying search engine for '{kw}'...")
+        logger.tool_call("Tavily Search", kw)
+        
+        results = await search_news(kw)
+        candidate_pools[kw] = results
+        total_candidates += len(results)
+        
+        logger.tool_result("Tavily Search", f"Returned {len(results)} links for '{kw}'.")
+        
+        titles = [r.get('title') for r in results[:3]]
+        if titles:
+            logger.think(f"Observation: Found articles: {titles}.")
+
+    logger.think(f"Status: Gathered {total_candidates} candidates across {len(target_keywords)} keywords. Starting Round-Robin extraction to build a balanced dataset (Target: 10 articles).")
+
+    # 2. Round-Robin Extraction Loop
+    evidence_items = []
+    MAX_ITEMS = 10
+    
+    # We cycle through keywords until we hit MAX_ITEMS or run out of candidates
+    while len(evidence_items) < MAX_ITEMS and any(candidate_pools.values()):
+        for kw in target_keywords:
+            if len(evidence_items) >= MAX_ITEMS:
+                break
+                
+            pool = candidate_pools.get(kw, [])
+            if not pool:
+                continue
+                
+            # Try getting ONE working article for this keyword in this round
+            found_for_keyword = False
+            
+            while pool and not found_for_keyword:
+                item = pool.pop(0) # Take next candidate
+                url = item.get("url")
+                title = item.get("title", "Unknown Title")
+                
+                # Deduplicate by URL
+                if any(x.get("url") == url for x in evidence_items):
+                    continue
+
+                if url:
+                     logger.think(f"Intent: [Round-Robin: {kw}] Attempting to read '{title}' ({url})...")
+                     logger.think(f"Action: Parsing full content of '{title}'...")
+                     try:
+                        content = await extract_article_content(url)
+                        if content:
+                            item["content"] = content
+                            evidence_items.append(item)
+                            found_for_keyword = True
+                            
+                            # Insight Log
+                            snippet = content[:200].replace("\n", " ")
+                            logger.think(f"Insight from '{title}': \"{snippet}...\" -> Successfully added to dataset.")
+                        else:
+                            logger.think(f"Result: Content extraction failed (or empty) for '{title}'. Trying next candidate for '{kw}'...")
+                     except Exception as e:
+                        logger.error(f"Failed to extract {url}: {e}")
+            
+            if not found_for_keyword:
+                logger.think(f"Warning: Exhausted candidates for keyword '{kw}' without success in this round.")
+                
+    logger.think(f"Status: Extraction complete. Gathered {len(evidence_items)} high-quality articles.")
+    
     # 3. Synthesize with LLM
-    print(f"--- [Research Node] 🤖 Synthesizing findings with LLM...")
     summary_text = "Analysis pending..."
     risk_flags = []
     
@@ -45,7 +109,7 @@ async def research_node(state: AgentState) -> AgentState:
     
     # Prepare context
     context = ""
-    for item in evidence_items[:limit]: # Feed top 5 to LLM
+    for item in evidence_items: # Feed all gathered items to LLM
         context += f"Source: {item.get('title', 'Unknown')}\n"
         context += f"URL: {item.get('url')}\n"
         context += f"Content: {item.get('content', item.get('content', 'No content'))[:500]}...\n\n"
@@ -62,11 +126,10 @@ async def research_node(state: AgentState) -> AgentState:
     )
     
     try:
-        # We check simply if key indicates placeholder to avoid crashing if user hasn't set it yet
-        # But we still run the code if it looks vaguely real or let it fail gracefully
         if "placeholder" not in os.getenv("OPENAI_API_KEY", "placeholder"):
-           # 3a. Initial Synthesis
-           print(f"--- [Research Node] 🤖 Synthesizing findings with LLM...")
+           # 3a. Deep Thinking Injection
+           logger.think("Synthesizing data... I need to identify if the gathered news confirms the user's thesis or contradicts it. I am looking for specific dates and volume triggers.")
+           
            msg = await llm.ainvoke([
                SystemMessage(content=system_prompt), 
                HumanMessage(content=f"Portfolio: {pf.name}\nDescription/Context: {pf.description}\nContext:\n{context}")
@@ -74,7 +137,6 @@ async def research_node(state: AgentState) -> AgentState:
            summary_text = msg.content
            
            # 3b. Reflection & Loop (Max 1 retry)
-           print(f"--- [Research Node] 🤔 Reflecting on data sufficiency...")
            reflection_prompt = (
                "You are a research supervisor. Read the summary below and determine if there is CRITICAL missing information "
                "needed to make an investment decision (e.g., missing specific dates, missing IPO valuation, missing election odds). "
@@ -86,11 +148,11 @@ async def research_node(state: AgentState) -> AgentState:
            
            if reflection_content.startswith("MISSING:"):
                 search_query = reflection_content.replace("MISSING:", "").strip()
-                print(f"--- [Research Node] 🔄 Gaps detected. Triggering follow-up search for: '{search_query}'")
+                logger.think(f"Gaps detected in research. I need to find specific details about: {search_query}")
+                logger.tool_call("Tavily Search (Follow-up)", search_query)
                 
                 # Search 2
                 new_results = await search_news(search_query)
-                print(f"--- [Research Node] 📖 extracting full text from follow-up search...")
                 for item in new_results[:2]: # Limit 2 for follow-up
                     if item.get("url"):
                         c = await extract_article_content(item["url"])
@@ -99,21 +161,20 @@ async def research_node(state: AgentState) -> AgentState:
                             evidence_items.append(item)
                 
                 # Re-Synthesize
-                # Rebuild context with ALL evidence
                 context = ""
                 for item in evidence_items[:7]: # Top 7 now
                     context += f"Source: {item.get('title', 'Unknown')}\n"
                     context += f"URL: {item.get('url')}\n"
                     context += f"Content: {item.get('content', item.get('content', 'No content'))[:500]}...\n\n"
                 
-                print(f"--- [Research Node] 🤖 Re-synthesizing with combined knowledge...")
+                logger.think("Re-evaluating thesis with new data points...")
                 msg = await llm.ainvoke([
                     SystemMessage(content=system_prompt), 
                     HumanMessage(content=f"Portfolio: {pf.name}\nContext:\n{context}")
                 ])
                 summary_text = msg.content
            else:
-               print(f"--- [Research Node] ✅ Research deemed sufficient.")
+               logger.think("Research coverage is sufficient to form a thesis.")
 
         else:
             summary_text = (
@@ -121,21 +182,26 @@ async def research_node(state: AgentState) -> AgentState:
                 "LLM synthesis skipped (API Key is placeholder). "
                 "Market sentiment appears mixed."
             )
+            logger.info("Skipping LLM (No API Key)")
+            
     except Exception as e:
-        print(f"LLM Error: {e}")
+        logger.error(f"LLM Error: {e}")
         summary_text = f"Error generating summary: {e}"
+
+    logger.end("Research phase complete.")
 
     result = ResearchResult(
         keywords=pf.keywords,
-        risk_flags=["High Volatility", "Regulatory Uncertainty"], # In real production, LLM should extract these too
+        risk_flags=["High Volatility", "Regulatory Uncertainty"], 
         evidence_items=evidence_items,
         summary=summary_text,
-        needs_more_info=False # We resolved it or gave up
+        needs_more_info=False 
     )
     
     return {
         "research_output": result, 
         "research_completed": True,
-        "messages": ["Research completed."]
+        "messages": ["Research completed."],
+        "structured_logs": state["structured_logs"]
     }
 

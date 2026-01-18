@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class RiskLimits(BaseModel):
     max_position_pct: float = Field(..., description="Max % of bankroll in one market")
     min_liquidity_usd: float = Field(..., description="Min liquidity required to enter")
+    min_volume_usd: float = Field(0.0, description="Min 24h volume required to enter")
     max_spread_pct: float = Field(..., description="Max bid-ask spread allowed")
 
 class PortfolioDefinition(BaseModel):
@@ -57,3 +58,4 @@ class RebalanceResponse(BaseModel):
     recommendation: str
     plan: AllocationPlan
     research: ResearchResult
+    agent_logs: List[dict] = []

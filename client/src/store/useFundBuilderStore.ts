@@ -82,39 +82,28 @@ export const useFundBuilderStore = create<FundBuilderState>()(
 
         addAgentEvent({ title: 'Topic Defined', message: topic, status: 'running', type: 'thinking' })
 
-        // Start "Thinking" Simulation Loop
-        const thoughts = [
-          "Research Agent: Scanning trusted sources (Reuters, Bloomberg, Polymarket)...",
-          "Research Agent: Filtering irrelevant volatility...",
-          "Research Agent: Synthesizing cross-market signals...",
-          "Allocator Agent: Fetching live orderbooks via Gamma API...",
-          "Allocator Agent: Screening for minimum liquidity ($50k+)...",
-          "Allocator Agent: Analyzing historical spread and slippage...",
-          "Allocator Agent: Calculating optimal Kelly criteria weights...",
-          "Allocator Agent: Finalizing basket composition..."
-        ];
-
-        let thoughtIndex = 0;
-        const thinkingInterval = setInterval(() => {
-          if (thoughtIndex < thoughts.length) {
-            const [role, msg] = thoughts[thoughtIndex].split(': ');
-            addAgentEvent({
-              title: role,
-              message: msg,
-              status: 'running',
-              type: 'thinking'
-            });
-            thoughtIndex++;
-          }
-        }, 2000); // New thought every 2s
+        addAgentEvent({ title: 'Topic Defined', message: topic, status: 'running', type: 'thinking' })
 
         try {
-          // Dynamic import to avoid circular dependencies if any, though likely safe here
-          const { fetchRebalance } = await import("@/lib/api");
+          const { fetchRebalanceStream } = await import("@/lib/api");
 
-          const data = await fetchRebalance(topic, topic); // Use topic as description for now
+          // Callback for real-time logs
+          const onLog = (log: any) => {
+            let status: 'done' | 'running' | 'failed' = 'done';
+            if (log.type === 'start') status = 'running';
+            if (log.type === 'end') status = 'done';
+            if (log.type === 'error') status = 'failed';
+            if (log.type === 'thinking') status = 'running';
 
-          clearInterval(thinkingInterval); // Stop thinking
+            addAgentEvent({
+              title: `[${log.node}]`,
+              message: log.message,
+              status: status,
+              type: log.type === 'thinking' ? 'thinking' : 'resource'
+            });
+          };
+
+          const data = await fetchRebalanceStream(topic, topic, onLog);
 
           if (data) {
             const holdings = data.plan.targets.map(t => ({
@@ -126,7 +115,7 @@ export const useFundBuilderStore = create<FundBuilderState>()(
               liquidity: t.liquidity_usd || 0,
               expiryDate: "2025-12-31",
               category: "Generated",
-              correlationScore: t.outcome === 'YES' ? 0.99 : 0.01, // Hack: Store side in correlation for now or just trust outcome field
+              correlationScore: t.outcome === 'YES' ? 0.99 : 0.01,
               cluster: t.outcome === 'YES' ? 'Likely' : 'Unlikely',
               tags: [],
               lastPrice: t.last_price || 0,
@@ -139,7 +128,6 @@ export const useFundBuilderStore = create<FundBuilderState>()(
             updateDraft({
               holdings: holdings as any,
               name: topic,
-              // thesis: cleanThesis, // Don't overwrite user input
               reportMarkdown: data.recommendation
             });
 
@@ -158,13 +146,12 @@ export const useFundBuilderStore = create<FundBuilderState>()(
             })
 
             set({ isAnalyzing: false })
-            return data; // Return data for UI side-effects
+            return data;
 
           } else {
             addAgentEvent({ title: 'Analysis Failed', message: 'No data returned.', status: 'failed', type: 'thinking' })
           }
         } catch (e) {
-          clearInterval(thinkingInterval);
           console.error(e)
           addAgentEvent({ title: 'Error', message: 'System error during analysis.', status: 'failed', type: 'thinking' })
         }

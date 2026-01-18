@@ -17,6 +17,11 @@ def filter_markets(markets: List[Dict], limits: RiskLimits) -> List[Dict]:
         if liq < limits.min_liquidity_usd:
             continue
             
+        # Check volume
+        vol = float(m.get("volume", 0)) if m.get("volume") else 0
+        if vol < limits.min_volume_usd:
+            continue
+
         # Simplified: check hardcoded spread if available, else assume 0 for scaffold
         spread = 0.01 
         if spread > limits.max_spread_pct:
