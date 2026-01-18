@@ -48,7 +48,7 @@ export function AgentConsole() {
         {resourceLinks.length > 0 && (
           <div className="p-4 border-t border-border-dark bg-gray-900/20">
             <p className="text-[10px] text-gray-500 uppercase font-bold mb-3">Resources & Artifacts</p>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[120px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 pr-1">
               {resourceLinks.map((link, i) => (
                 <a
                   key={i}

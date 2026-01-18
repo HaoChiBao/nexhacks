@@ -55,3 +55,29 @@ async def refine_topic(original_topic: str, user_input: str) -> str:
     
     msg = await llm.ainvoke([SystemMessage(content="You are a query refiner."), HumanMessage(content=prompt)])
     return msg.content.strip().replace('"', "")
+
+async def extract_search_keywords(topic: str, description: str) -> list[str]:
+    """
+    Extracts specific search keywords from a topic and description.
+    Returns a list of strings (e.g. ["NBA", "NFL", "MLB"]).
+    """
+    if "placeholder" in os.getenv("OPENAI_API_KEY", "placeholder"):
+        return [topic]
+
+    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+    prompt = (
+        f"Topic: '{topic}'\n"
+        f"Context/Thesis: '{description}'\n\n"
+        "Task: Extract 3-5 SPECIFIC, short search keywords to find relevant prediction markets.\n"
+        "Use concrete entity names (e.g. 'NBA', 'Bitcoin', 'Trump') rather than generic terms.\n"
+        "If the user lists specific items (e.g. 'NBA, MLB'), use those exactly.\n"
+        "Output ONLY a comma-separated list of keywords. do not number them."
+    )
+
+    msg = await llm.ainvoke([SystemMessage(content="You are a search optimizer."), HumanMessage(content=prompt)])
+    content = msg.content.strip()
+    
+    # Cleaning
+    keywords = [k.strip().replace('"', '') for k in content.split(',')]
+    return keywords
