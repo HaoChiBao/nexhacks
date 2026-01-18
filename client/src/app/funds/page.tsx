@@ -10,6 +10,15 @@ import { Search, Grid, List, ChevronDown, ChevronUp, ChevronsUpDown, Plus, Loade
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
+// Helper for initials
+const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+};
+
 export default function ExploreFundsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -45,6 +54,7 @@ export default function ExploreFundsPage() {
         
         const matchesSearch = f.name.toLowerCase().includes(query) ||
             f.thesis.toLowerCase().includes(query) ||
+            (f.metrics.aum ? f.metrics.aum.toString().includes(query) : false) || // Safer check
             f.tags.some(t => {
                 const lowerTag = t.toLowerCase();
                 return expandedTags.some(et => lowerTag.includes(et)) || lowerTag.includes(query);
@@ -123,7 +133,7 @@ export default function ExploreFundsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="block w-full pl-10 pr-10 py-2 border border-border-dark rounded-lg leading-5 bg-background-dark text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm transition-colors"
-              placeholder="Search by Name, Catagory, Market Volume.."
+              placeholder="Search by Name, Category, Market Volume.."
             />
              <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
                 <kbd className="inline-flex items-center border border-gray-700 rounded px-2 text-xs font-sans font-medium text-gray-500 bg-gray-800">⌘K</kbd>
@@ -224,14 +234,9 @@ export default function ExploreFundsPage() {
                     <tr key={fund.id} className="hover:bg-gray-800/50 transition-colors group">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <img 
-                            src={fund.logo} 
-                            alt={fund.name} 
-                            className="w-10 h-10 rounded-full object-cover bg-gray-800"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fund.name)}&background=random`;
-                            }}
-                          />
+                          <div className="w-10 h-10 rounded-full bg-emerald-900/30 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">
+                             {getInitials(fund.name)}
+                          </div>
                           <span className="font-semibold text-white">{fund.name}</span>
                         </div>
                       </td>
@@ -247,7 +252,7 @@ export default function ExploreFundsPage() {
                       <td className="p-4 text-white font-mono">
                         {fund.holdings[0] ? (
                             <div className="flex flex-col">
-                                <span className="text-sm">{fund.holdings[0].allocation}%</span>
+                                <span className="text-sm">{Number(fund.holdings[0].allocation).toFixed(2)}%</span>
                                 <span className="text-xs text-gray-500 truncate max-w-[100px]" title={fund.holdings[0].name}>{fund.holdings[0].name}</span>
                             </div>
                         ) : 'N/A'}

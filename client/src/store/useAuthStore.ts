@@ -21,7 +21,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   setSession: (session) => set({ session }),
   setLoading: (loading) => set({ loading }),
   signOut: async () => {
-    await supabase.auth.signOut()
-    set({ user: null, session: null })
+    try {
+      await supabase.auth.signOut()
+    } catch (error) {
+      console.error("Error signing out:", error)
+    } finally {
+      set({ user: null, session: null })
+      window.location.href = '/'
+    }
   },
 }))

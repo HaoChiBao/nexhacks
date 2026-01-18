@@ -22,6 +22,7 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     async function fetchPortfolio() {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
@@ -30,29 +31,37 @@ export default function PortfolioPage() {
                 return;
             }
 
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('portfolio')
-                .eq('id', user.id)
-                .single();
-
-            if (data?.portfolio) {
-                setPortfolio(data.portfolio);
+            const res = await fetch(`${API_URL}/users/${user.id}/profile`);
+            if (res.ok) {
+                const data = await res.json();
                 
-                // Calculate Total NAV (Invested Amount + PnL)
-                // Note: stored portfolio is simplified for now, assuming invested_amount is current value or similar
-                // For a real app, we'd calculate generic value = invested * (1 + pnl_percent/100)
-                const total = data.portfolio.reduce((acc: number, item: any) => {
-                    const value = item.invested_amount * (1 + (item.pnl_percent || 0) / 100);
-                    return acc + value;
-                }, 0);
-                setTotalNav(total);
+                if (data?.portfolio?.funds) {
+                    // Backend portfolio structure might be { funds: [...] } or just [...] depending on legacy.
+                    // routes/portfolios.py saves { funds: [...] }
+                    // So we expect data.portfolio.funds
+                    const fundsList = Array.isArray(data.portfolio) ? data.portfolio : (data.portfolio.funds || []);
+                    setPortfolio(fundsList);
+                    
+                    // Calculate Total NAV
+                    const total = fundsList.reduce((acc: number, item: any) => {
+                        // Assuming invested_amount is accessible
+                        const val = (item.current_value || item.invested_amount || 0);
+                        return acc + val;
+                    }, 0);
+                    setTotalNav(total);
+                } else if (Array.isArray(data?.portfolio)) {
+                     // Fallback if it's a direct array
+                     setPortfolio(data.portfolio);
+                }
+            } else {
+                console.error("Failed to fetch portfolio from API");
             }
         } catch (e) {
             console.error("Error fetching portfolio", e);
         } finally {
             setIsLoading(false);
         }
+
     }
 
     fetchPortfolio();
@@ -113,20 +122,27 @@ export default function PortfolioPage() {
             ) : (
                 portfolio.map((item, idx) => {
                     const fund = getFundDetails(item.fund_id);
-                    const currentValue = item.invested_amount * (1 + (item.pnl_percent || 0) / 100);
+                    // Use server-provided current value or fallback to invested amount
+                    const investedAmount = item.invested_amount || 0;
+                    const currentValue = item.current_value || investedAmount * (1 + (item.pnl_percent || 0) / 100);
                     
+                    const pnlPercent = item.pnl_percent || 0;
+                    const fundName = fund?.name || item.name || "Unknown Fund"; // Fallback to item.name if saved in portfolio
+                    const fundSymbol = fundName.substring(0, 2).toUpperCase();
+                    const category = fund?.tags?.[0] || "General";
+
                     return (
                         <PortfolioCard 
-                            key={idx}
-                            symbol={fund?.name.substring(0, 2).toUpperCase() || "EF"}
+                            key={`${item.fund_id}-${idx}`}
+                            symbol={fundSymbol}
                             symbolColor="bg-blue-900/30 text-blue-400"
-                            category={fund?.tags[0] || "General"}
+                            category={category}
                             categoryColor="text-blue-400 bg-blue-400/10"
-                            title={fund?.name || item.fund_id}
+                            title={fundName}
                             invested={`$${currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             positions={[
-                                // Mock positions for now as portfolio JSON only stores top-level
-                                { name: "Primary Thesis", percent: "60%", pnl: `${item.pnl_percent > 0 ? '+' : ''}${item.pnl_percent}%`, pnlColor: item.pnl_percent >= 0 ? "text-emerald-400" : "text-red-400" },
+                                // Mock positions if real holdings are missing from portfolio item
+                                { name: "Primary Thesis", percent: "60%", pnl: `${pnlPercent > 0 ? '+' : ''}${pnlPercent}%`, pnlColor: pnlPercent >= 0 ? "text-emerald-400" : "text-red-400" },
                                 { name: "Hedge", percent: "40%", pnl: "---", pnlColor: "text-gray-500" },
                             ]}
                             bgGradient="from-blue-900/10 to-transparent"

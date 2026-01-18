@@ -129,7 +129,15 @@ export const useFundBuilderStore = create<FundBuilderState>()(
             targetWeight: t.weight > 1 ? t.weight : t.weight * 100,
             locked: false,
             outcome: t.outcome,
-            reasoning: t.rationale
+            reasoning: t.rationale,
+            
+            // New Frontend Fields
+            ticker: t.market_slug ? (t.market_slug.split('-')[0] + '-' + (t.market_slug.split('-').pop()?.slice(0,3).toUpperCase() || 'JAN')) : "POLY",
+            description: t.question || t.event_title,
+            prob: (t.last_price || 0) * 100,
+            side: t.outcome,
+            rationale: t.rationale,
+            allocation: t.weight > 1 ? t.weight : t.weight * 100
           }));
 
           updateDraft({

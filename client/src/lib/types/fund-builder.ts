@@ -1,3 +1,6 @@
+import { MarketLine } from './market-line';
+export { type MarketLine };
+
 export type FundBuilderStage = 'RESEARCH' | 'LINE_POPULATION' | 'WEIGHTING' | 'FINALIZE';
 
 export interface UniverseRules {
@@ -17,24 +20,7 @@ export interface RiskRules {
   minLiquidityScore: number;
   maxDrawdownLimit: number;
 }
-
-export interface MarketLine {
-  id: string;
-  question: string;
-  slug?: string;
-  source: string; // 'Polymarket'
-  volume: number;
-  liquidity: number;
-  expiryDate: string;
-  category: string;
-  // Computed/Mock properties
-  correlationScore: number; // 0-1
-  cluster: string | null; // e.g., 'High Liquidity', 'High Probability'
-  tags: string[];
-  outcome?: string; // 'YES' or 'NO'
-  lastPrice: number;
-  reasoning?: string;
-}
+// Removed legacy MarketLine interface
 
 export interface Holding extends MarketLine {
   targetWeight: number; // percentage 0-100
@@ -52,7 +38,7 @@ export interface FundDraft {
   holdings: Holding[];
   status: 'DRAFT' | 'PUBLISHED';
   reportMarkdown?: string;
-  proposalJson?: string;
+  proposalJson?: any;
   reportPdf?: string;
 }
 

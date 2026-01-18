@@ -11,14 +11,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const fetchProfile = async (userId: string) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', userId)
-        .single()
-      
-      if (data && !error) {
-        setBalance(Number(data.balance))
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      try {
+        const res = await fetch(`${API_URL}/users/${userId}/profile`)
+        if (res.ok) {
+           const data = await res.json()
+           if (data) {
+             setBalance(Number(data.balance))
+           }
+        } else {
+           console.error(`Failed to fetch profile: ${res.status} ${res.statusText}`)
+           if (res.status === 404) {
+               // Optional: Trigger profile creation via another endpoint if needed, 
+               // but for now we just log as per "pulling" migration task.
+               console.log("Profile not found on backend.")
+           }
+        }
+      } catch (e) {
+         console.error("Exception in fetchProfile", e)
       }
     }
 

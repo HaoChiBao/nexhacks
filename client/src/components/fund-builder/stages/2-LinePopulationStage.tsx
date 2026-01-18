@@ -73,7 +73,7 @@ export function LinePopulationStage() {
                         if (!isLikelyA && isLikelyB) return 1;
 
                         // 2. Secondary: Volume (Descending) - Popular stuff first
-                        return (b.volume || 0) - (a.volume || 0);
+                        return (b.marketVolume || 0) - (a.marketVolume || 0);
                     })
                     .map(line => (
                         <LineCard

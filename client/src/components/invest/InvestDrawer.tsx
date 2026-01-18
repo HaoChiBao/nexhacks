@@ -13,10 +13,26 @@ import { useAppStore } from "@/store/useAppStore";
 import { useAuthStore } from "@/store/useAuthStore";
 // import { funds } from "@/lib/data/funds"; // Removed mock import
 import { useFundStore } from "@/store/useFundStore"; // Use store instead
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import * as Switch from "@radix-ui/react-switch";
-import { Info, Lock, Clock, TrendingUp, AlertTriangle } from "lucide-react";
+import { Info, Lock, Clock, TrendingUp, AlertTriangle, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import Confetti from 'react-confetti';
+// import { useWindowSize } from 'react-use'; // Removed dependency
+
+// Simple hook to reuse
+const useWindowSize = () => {
+    const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+            window.addEventListener('resize', handleResize);
+            handleResize();
+            return () => window.removeEventListener('resize', handleResize);
+        }
+    }, []);
+    return windowSize;
+};
 
 export function InvestDrawer() {
   const router = useRouter();
@@ -24,16 +40,27 @@ export function InvestDrawer() {
     investDrawerOpen,
     closeInvestDrawer,
     selectedFundId,
-    balance,
+    balance: appBalance, // Rename to distinguish
+    setBalance, // Use this if available
     isLiveMode,
     addDeposit,
   } = useAppStore();
   const { user } = useAuthStore();
-  const { funds } = useFundStore(); // Get funds from store
+  const { funds } = useFundStore(); 
 
   const [amount, setAmount] = useState<number>(2500);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Modal State
+  const [transactionStatus, setTransactionStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Use window size for confetti
+  const { width, height } = useWindowSize();
+
+  // If no fund, return null (should be handled by parent/state)
+
 
   // If no fund, return null (should be handled by parent/state)
   const fund = funds.find((f) => f.id === selectedFundId);
@@ -42,6 +69,8 @@ export function InvestDrawer() {
     setAmount(2500);
     setAgreeTerms(false);
     setIsProcessing(false);
+    setTransactionStatus("idle");
+    setErrorMessage("");
   }, [investDrawerOpen, selectedFundId]);
 
   if (!fund) return null;
@@ -50,9 +79,20 @@ export function InvestDrawer() {
     if (!open) closeInvestDrawer();
   };
 
-  const handleInvest = () => {
+  const parseError = (err: any): string => {
+      if (typeof err === 'string') return err;
+      if (err.detail) {
+          if (typeof err.detail === 'string') return err.detail;
+          if (Array.isArray(err.detail)) {
+              return err.detail.map((e: any) => e.msg || JSON.stringify(e)).join(", ");
+          }
+          return JSON.stringify(err.detail);
+      }
+      return err.message || JSON.stringify(err);
+  }
+
+  const handleInvest = async () => {
     if (!user) {
-        // Redirect to login if called (though button should handle this)
         router.push('/login');
         closeInvestDrawer();
         return;
@@ -60,14 +100,49 @@ export function InvestDrawer() {
 
     if (!agreeTerms) return;
     setIsProcessing(true);
-    setTimeout(() => {
-        addDeposit(-amount); // Deduct balance mock (sync with DB later)
+    setTransactionStatus("idle");
+
+    try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const response = await fetch(`${API_URL}/portfolios/invest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fund_id: fund.id,
+                fund_name: fund.name,
+                fund_logo: fund.logo || "", 
+                amount: amount,
+                user_id: user.id
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(parseError(err));
+        }
+
+        const data = await response.json();
+        
+        if (data.new_balance !== undefined) {
+             addDeposit(-amount); 
+        }
+
+        setTransactionStatus("success");
+
+    } catch (e: any) {
+        console.error(e);
+        setErrorMessage(parseError(e));
+        setTransactionStatus("error");
+    } finally {
         setIsProcessing(false);
-        closeInvestDrawer();
-        alert(isLiveMode ? "Transaction Requested" : "Simulated Deposit Created");
-    }, 1500);
+    }
   };
 
+  const handleResize = () => {
+    setTransactionStatus("idle");
+    setAmount(2500);
+  }
+  
   const handleLoginRedirect = () => {
      closeInvestDrawer();
      router.push('/login');
@@ -81,6 +156,60 @@ export function InvestDrawer() {
         className="w-full sm:max-w-lg bg-surface-dark border-border-dark text-white p-0 flex flex-col"
         side="right"
       >
+        {/* Confetti Overlay */}
+        {transactionStatus === "success" && (
+            <div className="fixed inset-0 z-50 pointer-events-none">
+                 <Confetti width={width} height={height} numberOfPieces={500} recycle={false} gravity={0.2} />
+            </div>
+        )}
+
+        {/* Transaction Result Modal Overlay (Absolute within Sheet) */}
+        {transactionStatus !== "idle" && (
+            <div className="absolute inset-0 z-40 bg-surface-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
+                {transactionStatus === "success" ? (
+                    <div className="space-y-6">
+                        <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-emerald-500/10">
+                            <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+                        </div>
+                        <h2 className="text-3xl font-bold text-white tracking-tight">Congratulations!</h2>
+                        <p className="text-gray-400 max-w-xs mx-auto">
+                            You successfully invested <span className="text-white font-mono font-bold">${amount}</span> in <span className="text-white font-bold">{fund.name}</span>.
+                        </p>
+                        <button 
+                            onClick={closeInvestDrawer}
+                            className="bg-primary hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 w-full max-w-xs"
+                        >
+                            Return to Portfolio
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                         <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-red-500/10">
+                            <XCircle className="w-12 h-12 text-red-500" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Investment Failed</h2>
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-sm text-red-200 font-mono text-left max-h-40 overflow-y-auto w-full custom-scroll">
+                            {typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)}
+                        </div>
+                        <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
+                            <button 
+                                onClick={() => setTransactionStatus("idle")}
+                                className="bg-surface-hover hover:bg-surface-active text-white font-medium py-3 px-8 rounded-xl border border-white/10 transition-colors"
+                            >
+                                Try Again
+                            </button>
+                            <button 
+                                onClick={closeInvestDrawer}
+                                className="text-gray-500 hover:text-gray-300 text-sm py-2"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
+
         {/* Decorative Background */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
 
@@ -104,11 +233,11 @@ export function InvestDrawer() {
             </div>
             <div className="flex justify-between items-start mb-3 relative z-10">
               <div className="flex items-center gap-3">
-                <img
-                  alt="Fund Icon"
-                  className="w-12 h-12 rounded-xl shadow-lg ring-1 ring-gray-700 object-cover"
-                  src={fund.logo}
-                />
+                 <div className="h-12 w-12 rounded-xl bg-surface-dark p-1 shadow-md border border-border-dark flex items-center justify-center">
+                    <div className="w-full h-full rounded-lg flex items-center justify-center font-bold text-lg bg-gray-800/50 text-white">
+                        {getInitials(fund.name)}
+                    </div>
+                  </div>
                 <div>
                   <h3 className="font-bold text-white text-lg">{fund.name}</h3>
                   <p className="text-xs text-gray-400">Managed by PrintMoney Core</p>
@@ -146,7 +275,7 @@ export function InvestDrawer() {
               <span className="text-gray-400">
                 Available Balance:{" "}
                 <span className="text-gray-300 font-mono">
-                  ${balance.toLocaleString()}
+                  ${appBalance.toLocaleString()}
                 </span>
               </span>
               <span className="text-orange-400 flex items-center gap-1">
@@ -161,7 +290,7 @@ export function InvestDrawer() {
                 <input 
                     type="range" 
                     min={0} 
-                    max={Math.min(10000, balance)} 
+                    max={Math.min(10000, appBalance)} 
                     value={amount} 
                     onChange={(e) => setAmount(Number(e.target.value))}
                     className="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-primary"
@@ -171,7 +300,7 @@ export function InvestDrawer() {
                 {[25, 50, 75, 100].map((pct) => (
                   <button
                     key={pct}
-                    onClick={() => setAmount(Math.floor(balance * (pct / 100)))}
+                    onClick={() => setAmount(Math.floor(appBalance * (pct / 100)))}
                     className="px-4 py-1.5 rounded-lg border border-border-dark bg-surface-hover/50 hover:bg-surface-hover hover:border-gray-600 text-xs font-medium text-gray-400 transition-colors"
                     disabled={!user}
                   >
@@ -254,7 +383,7 @@ export function InvestDrawer() {
                 </span>
                 <div className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-lg">
                 <span>Confirm</span>
-                <TrendingUp className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                 </div>
             </button>
           ) : (
