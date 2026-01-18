@@ -34,9 +34,7 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/funds" className="flex-shrink-0 flex items-center gap-2 cursor-pointer">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-emerald-500/20">
-              P
-            </div>
+            <img src="/f.png" alt="FanFunds Logo" className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-emerald-500/20" />
             <span className="font-bold text-xl tracking-tight text-white">
               FanFunds
             </span>

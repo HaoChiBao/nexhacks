@@ -91,7 +91,10 @@ export default function AuditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] p-6 lg:p-8 pt-24 font-sans text-gray-100">
+    <div className="min-h-screen p-6 lg:p-8 pt-24 font-sans text-gray-100 relative">
+      {/* Canvas Background to cover global effects */}
+      <div className="fixed inset-0 bg-[#0A0A0A] -z-10" />
+
       <div className="max-w-[1600px] mx-auto space-y-8">
         
         {/* Header */}
