@@ -1,0 +1,48 @@
+{
+  "name": "Prismlines Overlay",
+  "version": "1.0",
+  "manifest_version": 3,
+  "description": "Overlay Prism Lines portfolio on any page",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "Toggle Overlay"
+  },
+  "commands": {
+    "toggle-overlay": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "Toggle the overlay"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/injected/overlay.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/utils/storage.js",
+        "src/injected/overlay.js",
+        "src/contentScript.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
