@@ -7,12 +7,14 @@ interface FundState {
   isLoading: boolean
   error: string | null
   fetchFunds: () => Promise<void>
+  addFund: (fund: Fund) => void
 }
 
 export const useFundStore = create<FundState>((set) => ({
   funds: [],
   isLoading: false,
   error: null,
+  addFund: (fund) => set((state) => ({ funds: [fund, ...state.funds] })),
   fetchFunds: async () => {
     console.log("Fetching funds from Supabase...");
     set({ isLoading: true, error: null })

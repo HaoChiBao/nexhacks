@@ -16,6 +16,8 @@ app.add_middleware(
 app.include_router(health.router, prefix="/health", tags=["system"])
 app.include_router(portfolios.router, prefix="/portfolios", tags=["portfolios"])
 app.include_router(rebalance.router, prefix="/rebalance", tags=["rebalance"])
+from app.api.routes import funds
+app.include_router(funds.router, prefix="/funds", tags=["funds"])
 
 @app.on_event("startup")
 async def startup_event():

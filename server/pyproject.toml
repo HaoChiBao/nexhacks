@@ -16,6 +16,7 @@ dependencies = [
     "tavily-python",
     "beautifulsoup4",
     "fpdf",
+    "supabase",
 ]
 
 [project.optional-dependencies]

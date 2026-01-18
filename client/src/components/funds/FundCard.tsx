@@ -5,6 +5,15 @@ import { useAppStore } from "@/store/useAppStore";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+// Helper
+const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+};
+
 interface FundCardProps {
   fund: Fund;
   index: number;
@@ -82,12 +91,10 @@ export function FundCard({ fund, index }: FundCardProps) {
       <div className="px-6 relative flex-grow">
         {/* Logo */}
         <div className="absolute -top-8 left-6">
-          <div className="h-16 w-16 rounded-xl bg-surface-dark p-1 shadow-md border border-border-dark">
-            <img
-              alt="Fund Logo"
-              className="h-full w-full rounded-lg object-cover"
-              src={fund.logo}
-            />
+          <div className="h-16 w-16 rounded-xl bg-surface-dark p-1 shadow-md border border-border-dark flex items-center justify-center">
+            <div className={cn("w-full h-full rounded-lg flex items-center justify-center font-bold text-2xl bg-gray-800/50", theme.accent)}>
+                {getInitials(fund.name)}
+            </div>
           </div>
         </div>
 
@@ -125,7 +132,7 @@ export function FundCard({ fund, index }: FundCardProps) {
                 {fund.holdings.slice(0,3).map((h, i) => (
                      <div key={i} className="flex items-center justify-between">
                      <span className="text-xs font-mono text-gray-300">{h.ticker}</span>
-                     <span className={cn("text-xs font-mono font-medium", theme.accent)}>{h.allocation}%</span>
+                     <span className={cn("text-xs font-mono font-medium", theme.accent)}>{Number(h.allocation).toFixed(2)}%</span>
                    </div>
                 ))}
             </div>

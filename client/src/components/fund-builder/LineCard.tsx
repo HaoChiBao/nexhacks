@@ -52,7 +52,7 @@ export function LineCard({ line, isSelected, onToggleSelect, weight, onWeightCha
               <span className="truncate">Polymarket</span>
             </span>
             <span className="w-0.5 h-0.5 rounded-full bg-gray-600 flex-shrink-0" />
-            <span className="font-mono text-gray-400 flex-shrink-0">${((line.volume || 0) / 1000).toFixed(1)}k Vol</span>
+            <span className="font-mono text-gray-400 flex-shrink-0">${((line.marketVolume || 0) / 1000).toFixed(1)}k Vol</span>
             <span className="w-0.5 h-0.5 rounded-full bg-gray-600 flex-shrink-0" />
             <span className={cn(
               "font-bold uppercase flex-shrink-0",
@@ -125,12 +125,12 @@ export function LineCard({ line, isSelected, onToggleSelect, weight, onWeightCha
           </div>
           <div className="group/metric">
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-gray-500 font-bold uppercase text-[10px]">Last Price</span>
+              <span className="text-gray-500 font-bold uppercase text-[10px]">Probability</span>
               <Info className="w-3 h-3 text-gray-600" />
             </div>
-            <div className="font-mono text-gray-300">{(line.lastPrice || 0).toFixed(2)}¢</div>
+            <div className="font-mono text-gray-300">{(line.prob || 0).toFixed(1)}%</div>
             <div className="text-[10px] text-gray-600 mt-1 hidden group-hover/metric:block absolute bg-black border border-gray-800 p-2 rounded-lg -translate-y-full -translate-x-4 w-32 z-50">
-              Current market probability cost.
+              Implied probability of outcome.
             </div>
           </div>
         </div>

@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useFundBuilderStore } from "@/store/useFundBuilderStore";
+import { useFundStore } from "@/store/useFundStore";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, FileText, ArrowRight } from "lucide-react";
+import { CheckCircle2, FileText, ArrowRight, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DocumentPreviewModal } from "../DocumentPreviewModal";
 import { supabase } from "@/lib/supabase";
 
 export function FinalizeStage() {
   const { draft, updateDraft, setStage } = useFundBuilderStore();
+  const { addFund } = useFundStore(); 
   const router = useRouter();
 
   const [isPublishing, setIsPublishing] = useState(false);
@@ -30,37 +32,77 @@ export function FinalizeStage() {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         
-        if (!user) {
-            alert("You must be logged in to publish a fund.");
-            return;
-        }
+        // Allow guest publishing
+        const ownerId = user?.id || null;
+        const createdBy = user?.user_metadata?.full_name || user?.email || 'Anonymous';
 
-        const fundData = {
+        const fundPayload = {
             id: draft.id,
             name: draft.name,
             thesis: draft.thesis,
             status: 'Live',
             holdings: draft.holdings,
             tags: [draft.category, draft.cadence], 
-            owner_id: user.id,
-            created_by: user.user_metadata?.full_name || user.email || 'Anonymous',
+            owner_id: ownerId,
+            created_by: createdBy,
+            
+            // Metrics
             returns_month: 0,
             returns_inception: 0,
             liquidity_score: draft.riskRules.minLiquidityScore || 50,
             aum: 0,
-            nav: 10,  // Stating NAV $10
+            nav: 10,  
             max_drawdown: 0,
             top_concentration: Math.max(...draft.holdings.map(h => h.targetWeight)) || 0,
-            sharpe: 0
+            sharpe: 0,
+            
+            // Artifacts
+            report_markdown: draft.reportMarkdown,
+            proposal_json: draft.proposalJson,
+            report_pdf: draft.reportPdf,
+            categories: [draft.category, draft.cadence]
         };
 
-        const { error } = await supabase.from('funds').insert(fundData);
-        if (error) throw error;
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const response = await fetch(`${API_URL}/funds`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fundPayload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || "Failed to publish fund via backend");
+        }
+
+        const responseData = await response.json();
+        const newFundId = responseData.fund_id; // Backend generated ID
+        const createdFund = responseData.fund;
+
+        // Manually update the global store with the new fund data so the redirect works immediately
+        // We need to map the backend response (snake_case/mixed) to our frontend Fund interface
+        if (createdFund) {
+             addFund({
+                id: createdFund.id,
+                name: createdFund.name,
+                thesis: createdFund.thesis,
+                secondaryThesis: createdFund.secondary_thesis,
+                logo: createdFund.logo,
+                metrics: {
+                    sharpe: createdFund.sharpe || 0,
+                    nav: createdFund.nav || 10,
+                    aum: createdFund.aum || 0,
+                },
+                holdings: createdFund.holdings || [],
+                tags: createdFund.tags || [],
+                createdBy: createdFund.created_by || 'Anonymous',
+             });
+        }
 
         updateDraft({ status: 'PUBLISHED' });
         
-        // Redirect to the new fund page
-        router.push(`/funds/${draft.id}`);
+        // Redirect to the new fund page using the authoritative ID
+        router.push(`/funds/${newFundId}`);
 
     } catch (err: any) {
         console.error("Error publishing fund:", err);
@@ -178,9 +220,18 @@ export function FinalizeStage() {
           </Button>
           <Button
             onClick={handlePublish}
-            className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-8"
+            disabled={isPublishing}
+            className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-8 min-w-[160px]"
           >
-            <CheckCircle2 className="w-4 h-4 mr-2" /> Publish Fund
+            {isPublishing ? (
+                 <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Publishing...
+                 </>
+            ) : (
+                 <>
+                    <CheckCircle2 className="w-4 h-4 mr-2" /> Publish Fund
+                 </>
+            )}
           </Button>
         </div>
       </div>
