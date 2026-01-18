@@ -78,7 +78,7 @@ values
     -4.2,
     45,
     2.85,
-    42.85,
+    82,
     53.1,
     ARRAY['Politics', 'Macro'],
     '[
