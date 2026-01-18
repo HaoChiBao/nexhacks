@@ -51,8 +51,20 @@ def invest_in_fund(req: InvestRequest):
              raise HTTPException(status_code=400, detail="Insufficient balance")
              
         # 3. Update Portfolio
-        portfolio = profile.get("portfolio") or {"funds": []}
+        # 3. Update Portfolio
+        raw_portfolio = profile.get("portfolio")
+        
+        # Handle cases where portfolio might be initialized as a list or None
+        if raw_portfolio is None:
+            portfolio = {"funds": []}
+        elif isinstance(raw_portfolio, list):
+            portfolio = {"funds": raw_portfolio}
+        else:
+            portfolio = raw_portfolio
+
         funds = portfolio.get("funds", [])
+        if funds is None:
+             funds = []
         
         # Check if already invested
         existing_idx = next((i for i, f in enumerate(funds) if f["id"] == req.fund_id), -1)
