@@ -7,6 +7,7 @@ interface FundState {
   isLoading: boolean
   error: string | null
   fetchFunds: (force?: boolean) => Promise<void>
+  fetchFund: (id: string) => Promise<void>
   addFund: (fund: Fund) => void
 }
 
@@ -64,4 +65,45 @@ export const useFundStore = create<FundState>((set, get) => ({
       set({ isLoading: false })
     }
   },
+  fetchFund: async (id: string) => {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      set({ isLoading: true, error: null });
+      try {
+          console.log(`Fetching single fund: ${id}`);
+          const res = await fetch(`${API_URL}/funds/${id}`);
+          if (!res.ok) throw new Error(`Failed to fetch fund: ${res.statusText}`);
+          
+          const item = await res.json();
+          const fund: Fund = {
+            id: item.id,
+            name: item.name,
+            thesis: item.thesis,
+            secondaryThesis: item.secondary_thesis,
+            logo: item.logo,
+            metrics: {
+              sharpe: item.sharpe,
+              nav: item.nav || 10,
+              aum: item.aum || 0,
+            },
+            holdings: item.holdings || [],
+            tags: item.tags || [],
+            createdBy: item.created_by || 'Unknown',
+          };
+          
+          // Update specific fund in list or add it
+          set(state => {
+              const exists = state.funds.find(f => f.id === fund.id);
+              if (exists) {
+                  return { funds: state.funds.map(f => f.id === fund.id ? fund : f) };
+              }
+              return { funds: [...state.funds, fund] };
+          });
+          
+      } catch (err: any) {
+          console.error(`Error fetching fund ${id}:`, err);
+          // Don't fallback to local here, just error out appropriately or let the UI handle "not found"
+      } finally {
+          set({ isLoading: false });
+      }
+  }
 }))

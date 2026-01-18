@@ -4,6 +4,7 @@ import Glass from "@/components/ui/glass";
 import Link from "next/link";
 
 export default function Home() {
+  console.log("🏠 MOUNTING LANDING PAGE (ROOT)");
   // Duplicate funds to ensure seamless infinite scroll
   // We need enough items to fill the column height and loop
   const displayFunds = [...funds, ...funds, ...funds, ...funds];

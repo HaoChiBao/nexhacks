@@ -156,18 +156,22 @@ const getInitials = (name: string) => {
 };
 
 export default function FundDetailsPage({ params }: { params: { fundId: string } }) {
-  const { funds, fetchFunds, isLoading: isStoreLoading } = useFundStore();
+  console.log("🚀 MOUNTING FUND DETAILS PAGE. ID:", params.fundId); 
+  const { funds, fetchFunds, fetchFund, isLoading: isStoreLoading } = useFundStore();
   
   // Local state for initial load check if store is empty
   const [initialFetchDone, setInitialFetchDone] = useState(false);
 
   useEffect(() => {
-    if (funds.length === 0 && !initialFetchDone) {
-        fetchFunds().then(() => setInitialFetchDone(true));
+    // If fund missing, try fetching it directly
+    const found = funds.find(f => f.id === params.fundId);
+    if (!found) {
+        console.log(`Fund ${params.fundId} not in store. Fetching directly...`);
+        fetchFund(params.fundId).then(() => setInitialFetchDone(true));
     } else {
         setInitialFetchDone(true);
     }
-  }, [fetchFunds, funds.length, initialFetchDone]);
+  }, [fetchFund, funds, params.fundId]);
 
   const fund = useMemo(() => {
       return funds.find(f => f.id === params.fundId);
