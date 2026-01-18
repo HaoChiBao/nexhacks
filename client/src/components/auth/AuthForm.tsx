@@ -69,6 +69,9 @@ export function AuthForm({ view }: AuthFormProps) {
         result = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          },
         })
       } else {
         result = await supabase.auth.signInWithPassword({
