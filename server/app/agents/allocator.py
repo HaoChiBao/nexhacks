@@ -19,7 +19,7 @@ async def allocator_node(state: AgentState) -> AgentState:
         state["structured_logs"] = []
     logger = AgentLogger("Allocator Agent", state["structured_logs"])
     
-    logger.start("Starting allocation strategy...")
+    logger.start("Optimizing positions...")
 
     research = state["research_output"]
     pf = state["portfolio"]
@@ -60,7 +60,7 @@ async def allocator_node(state: AgentState) -> AgentState:
             markets.extend(slug_markets)
             
     # 2. Filter (Double check liquidity/spread/vol again just in case)
-    logger.think("Applying final risk constraints (Liquidity > $1k, Spread < 5%)...")
+    logger.think("Filtering for quality...")
     risk_markets = filter_markets(markets, risk)
     logger.info(f"{len(risk_markets)} markets passed risk filter (out of {len(markets)})")
     
@@ -118,7 +118,7 @@ async def allocator_node(state: AgentState) -> AgentState:
         event_rationales=event_rationales
     )
     
-    logger.end(f"Allocation complete. Generated {len(plan.trades)} target positions.")
+    logger.end(f"Optimized {len(plan.trades)} targets.")
     
     return {
         "allocation_plan": plan,
