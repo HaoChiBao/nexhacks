@@ -18,7 +18,7 @@ export default function ExploreFundsPage() {
 
   const categories = ["All", "News", "Politics", "Sports", "Crypto", "Finance", "Economy", "Climate", "Culture", "World", "Tech", "Science", "Health", "Entertainment"];
   
-  const { funds, fetchFunds, isLoading } = useFundStore();
+  const { funds, fetchFunds, isLoading, error } = useFundStore();
 
   useEffect(() => {
     fetchFunds();
@@ -189,6 +189,20 @@ export default function ExploreFundsPage() {
             <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
             <p className="text-gray-400">Loading funds from Supabase...</p>
          </div>
+      ) : error ? (
+        <div className="min-h-[400px] flex flex-col items-center justify-center text-center">
+            <div className="bg-red-500/10 text-red-500 p-4 rounded-lg mb-4 max-w-md">
+                <p className="font-semibold">Error loading funds</p>
+                <p className="text-sm opacity-80">{error}</p>
+            </div>
+            <button 
+                onClick={() => fetchFunds()}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors flex items-center gap-2"
+            >
+                <Loader2 className={cn("w-4 h-4", isLoading && "animate-spin")} />
+                Retry
+            </button>
+        </div>
       ) : (
         <>
           {viewMode === 'list' ? (

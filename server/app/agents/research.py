@@ -24,9 +24,7 @@ async def research_node(state: AgentState) -> AgentState:
     logger = AgentLogger("Research Agent", state["structured_logs"])
     
     pf = state["portfolio"]
-    logger.start(f"Starting research for '{pf.name}'")
-    logger.think(f"Strategy: I will search for {pf.keywords} to gather broad context, then use LLM to synthesize findings into an investment thesis.")
-    
+    logger.start(f"Analyzing '{pf.name}'")
     # 1. Search Phase
     # We want a diverse pool, so we search for ALL keywords first
     candidate_pools = {} # {keyword: [articles]}
@@ -36,8 +34,7 @@ async def research_node(state: AgentState) -> AgentState:
     target_keywords = pf.keywords[:5] 
     
     for kw in target_keywords:
-        logger.think(f"Hypothesis: Searching for '{kw}' will reveal broad market sentiment and potential catalysts.")
-        logger.think(f"Action: Querying search engine for '{kw}'...")
+        logger.think(f"Searching: '{kw}'")
         logger.tool_call("Tavily Search", kw)
         
         results = await search_news(kw)
@@ -46,11 +43,9 @@ async def research_node(state: AgentState) -> AgentState:
         
         logger.tool_result("Tavily Search", f"Returned {len(results)} links for '{kw}'.")
         
-        titles = [r.get('title') for r in results[:3]]
-        if titles:
-            logger.think(f"Observation: Found articles: {titles}.")
+        # logger.tool_result(...)
 
-    logger.think(f"Status: Gathered {total_candidates} candidates across {len(target_keywords)} keywords. Starting Round-Robin extraction to build a balanced dataset (Target: 10 articles).")
+    logger.think(f"Gathered {total_candidates} results. Extracting top 10...")
 
     # 2. Round-Robin Extraction Loop
     evidence_items = []
@@ -79,27 +74,23 @@ async def research_node(state: AgentState) -> AgentState:
                     continue
 
                 if url:
-                     logger.think(f"Intent: [Round-Robin: {kw}] Attempting to read '{title}' ({url})...")
-                     logger.think(f"Action: Parsing full content of '{title}'...")
+                     logger.think(f"Reading: '{title}'")
                      try:
                         content = await extract_article_content(url)
                         if content:
                             item["content"] = content
                             evidence_items.append(item)
                             found_for_keyword = True
-                            
-                            # Insight Log
-                            snippet = content[:200].replace("\n", " ")
-                            logger.think(f"Insight from '{title}': \"{snippet}...\" -> Successfully added to dataset.")
+                            logger.think(f"Added: '{title}'")
                         else:
-                            logger.think(f"Result: Content extraction failed (or empty) for '{title}'. Trying next candidate for '{kw}'...")
+                            pass
                      except Exception as e:
                         logger.error(f"Failed to extract {url}: {e}")
             
             if not found_for_keyword:
                 logger.think(f"Warning: Exhausted candidates for keyword '{kw}' without success in this round.")
                 
-    logger.think(f"Status: Extraction complete. Gathered {len(evidence_items)} high-quality articles.")
+    logger.think(f"Dataset complete ({len(evidence_items)} articles).")
     
     # 3. Synthesize with LLM
     summary_text = "Analysis pending..."
@@ -127,8 +118,7 @@ async def research_node(state: AgentState) -> AgentState:
     
     try:
         if "placeholder" not in os.getenv("OPENAI_API_KEY", "placeholder"):
-           # 3a. Deep Thinking Injection
-           logger.think("Synthesizing data... I need to identify if the gathered news confirms the user's thesis or contradicts it. I am looking for specific dates and volume triggers.")
+           logger.think("Synthesizing context...")
            
            msg = await llm.ainvoke([
                SystemMessage(content=system_prompt), 
@@ -148,7 +138,7 @@ async def research_node(state: AgentState) -> AgentState:
            
            if reflection_content.startswith("MISSING:"):
                 search_query = reflection_content.replace("MISSING:", "").strip()
-                logger.think(f"Gaps detected in research. I need to find specific details about: {search_query}")
+                logger.think(f"Researching gap: {search_query}")
                 logger.tool_call("Tavily Search (Follow-up)", search_query)
                 
                 # Search 2
@@ -174,7 +164,7 @@ async def research_node(state: AgentState) -> AgentState:
                 ])
                 summary_text = msg.content
            else:
-               logger.think("Research coverage is sufficient to form a thesis.")
+               logger.think("Analysis complete.")
 
         else:
             summary_text = (

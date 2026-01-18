@@ -35,7 +35,7 @@ export async function fetchRebalanceStream(
     onLog: (log: any) => void
 ): Promise<RebalanceResponse | null> {
     try {
-        const response = await fetch("http://localhost:8000/rebalance/", {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/rebalance/`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

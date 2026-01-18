@@ -6,33 +6,37 @@ export function AgentConsole() {
   const { agentEvents, isAnalyzing, resourceLinks, draft } = useFundBuilderStore();
 
   return (
-    <div className="flex flex-col gap-6 h-full">
+    <div className="flex flex-col gap-4 h-full">
       {/* Agent Console Feed */}
       <div className="bg-surface-dark border border-border-dark rounded-xl flex-grow overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-border-dark flex items-center justify-between">
+        <div className="p-3 border-b border-border-dark flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <BrainCircuit className="w-4 h-4 text-primary" />
+            <BrainCircuit className="w-3.5 h-4 text-primary" />
             <h3 className="text-sm font-bold text-white">Agent Console</h3>
           </div>
           {isAnalyzing && <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
         </div>
 
-        <div className="p-4 overflow-y-auto space-y-6 flex-grow scrollbar-none">
-          {agentEvents.map((event) => (
-            <div key={event.id} className="relative pl-4 border-l border-gray-800">
+        <div className="p-3 overflow-y-auto space-y-4 flex-grow scrollbar-none">
+          {agentEvents.map((event, idx) => (
+            <div key={event.id} className={cn(
+              "relative pl-4 border-l transition-opacity duration-300",
+              event.status === 'running' ? "border-amber-500/30" : "border-emerald-500/20",
+              idx > 2 && "opacity-60 hover:opacity-100" // Dim older entries
+            )}>
               <div className={cn(
                 "absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full border-2 border-surface-dark",
                 event.status === 'running' ? "bg-amber-500" : "bg-emerald-500"
               )} />
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500 font-mono">
-                    {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} UTC
+                    {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                   {event.status === 'running' && <Loader2 className="w-3 h-3 text-amber-500 animate-spin" />}
                 </div>
                 <h4 className="text-xs font-bold text-gray-200">{event.title}</h4>
-                <p className="text-xs text-gray-500 leading-snug">{event.message}</p>
+                <p className="text-[11px] text-gray-500 leading-tight">{event.message}</p>
               </div>
             </div>
           ))}
