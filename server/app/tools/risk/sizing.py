@@ -125,8 +125,27 @@ def create_allocation_plan(
         final_picks.append(group_list[0])
         
     # Phase 3: Allocate (Confidence Weighted)
-    # Instead of equal weight, we scale weights by confidence
-    total_confidence = sum(p["confidence"] for p in final_picks)
+    # Apply Min-Max Normalization to create drastic differences
+    # (score - min) / (max - min)
+    if final_picks:
+        confidences = [p["confidence"] for p in final_picks]
+        min_c = min(confidences)
+        max_c = max(confidences)
+        
+        # If there is a spread, normalize
+        if max_c > min_c:
+            for p in final_picks:
+                # Replace confidence with normalized score (0.0 to 1.0) multiplied by 100 for readability
+                # But actually, the raw value doesn't matter for the ratio, keeping it as 0-100 scale is fine if we want
+                # actually, user wants specific "percentage of the difference", so 0 to 1 float is best.
+                p["confidence_score"] = (p["confidence"] - min_c) / (max_c - min_c)
+        else:
+            # If all equal, give them equal score (e.g. 1.0)
+            for p in final_picks:
+                p["confidence_score"] = 1.0
+
+    # Instead of equal weight, we scale weights by confidence_score
+    total_confidence = sum(p["confidence_score"] for p in final_picks)
     if total_confidence <= 0:
         return AllocationPlan(targets=[], trades=[], warnings=["Total confidence was zero."])
 
@@ -138,7 +157,7 @@ def create_allocation_plan(
     # Calculate raw weights based on confidence
     for pick in final_picks:
         # Normalized weight: (conf / total_conf) * max_total_exposure
-        raw_conf_weight = (pick["confidence"] / total_confidence) * max_total_exposure
+        raw_conf_weight = (pick["confidence_score"] / total_confidence) * max_total_exposure
         # Apply per-position cap
         pick["final_weight"] = min(raw_conf_weight, risk.max_position_pct)
     
