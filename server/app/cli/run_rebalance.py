@@ -57,8 +57,36 @@ async def main():
     
     try:
         final_state = await supervisor_graph.ainvoke(initial_state)
-        print("\n✅ WORKFLOW COMPLETE\n")
-        print(final_state["recommendation_text"])
+        
+        # 1. Print Markets to Console
+        print("\n✅ WORKFLOW COMPLETE")
+        print("\n--- 🛒 PROPOSED TRADES ---")
+        # Extract just the allocation part (hacky split, but effective for MVP)
+        full_text = final_state["recommendation_text"]
+        if "### 🎯 Strategic Allocation" in full_text:
+            allocation_part = full_text.split("### 🎯 Strategic Allocation")[1].split("### 📚 Sources")[0]
+            print(allocation_part.strip())
+        else:
+            print("No trades generated.")
+        print("--------------------------")
+        
+        # 2. Save Full Report to Downloads
+        import os
+        from datetime import datetime
+        
+        home = os.path.expanduser("~")
+        downloads_dir = os.path.join(home, "Downloads")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Clean topic for filename
+        safe_topic = (args.topic or args.portfolio).replace(" ", "_").lower()
+        filename = f"polymarket_report_{safe_topic}_{timestamp}.md"
+        file_path = os.path.join(downloads_dir, filename)
+        
+        with open(file_path, "w") as f:
+            f.write(full_text)
+
+        print(f"\n📄 Full Research Report saved to: {file_path}")
     except Exception as e:
         print(f"\n❌ Error running workflow: {e}")
 

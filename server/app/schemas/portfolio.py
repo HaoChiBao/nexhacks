@@ -19,6 +19,8 @@ class ResearchResult(BaseModel):
     risk_flags: List[str]
     evidence_items: List[dict]
     summary: str
+    needs_more_info: bool = False
+    research_gaps: Optional[str] = None
 
 class Trade(BaseModel):
     market_id: str
@@ -31,9 +33,11 @@ class TargetAllocation(BaseModel):
     market_id: str
     market_slug: Optional[str] = None
     event_title: Optional[str] = None
+    question: Optional[str] = None
     outcome: str
     weight: float
     rationale: str
+    citation_url: Optional[str] = None
 
 class AllocationPlan(BaseModel):
     targets: List[TargetAllocation]
