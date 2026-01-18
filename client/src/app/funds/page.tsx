@@ -54,6 +54,7 @@ export default function ExploreFundsPage() {
         
         const matchesSearch = f.name.toLowerCase().includes(query) ||
             f.thesis.toLowerCase().includes(query) ||
+            (f.metrics.aum?.toString().includes(query)) ||
             f.tags.some(t => {
                 const lowerTag = t.toLowerCase();
                 return expandedTags.some(et => lowerTag.includes(et)) || lowerTag.includes(query);
@@ -132,7 +133,7 @@ export default function ExploreFundsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="block w-full pl-10 pr-10 py-2 border border-border-dark rounded-lg leading-5 bg-background-dark text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm transition-colors"
-              placeholder="Search by Name, Catagory, Market Volume.."
+              placeholder="Search by Name, Category, Market Volume.."
             />
              <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
                 <kbd className="inline-flex items-center border border-gray-700 rounded px-2 text-xs font-sans font-medium text-gray-500 bg-gray-800">⌘K</kbd>
