@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Glass from "@/components/ui/glass";
 import { EngineSection } from "@/components/landing/EngineSection";
+import { RotatingText } from "@/components/landing/RotatingText";
 
 export default function Home() {
   return (
@@ -23,20 +24,20 @@ export default function Home() {
 
         {/* Center Content */}
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center">
-          <Glass className="p-12 md:p-16 flex flex-col items-center text-center max-w-4xl mx-4">
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white mb-6 drop-shadow-2xl">
-              The Future of
+          <div className="flex flex-col items-center text-center max-w-5xl mx-4">
+            <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-white mb-8 drop-shadow-2xl uppercase">
+              If You Love It,
               <br />
               <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-300">
-                Fund Management
+                Bet On It
               </span>
             </h1>
             
-            <p className="text-xl text-gray-300 max-w-2xl mb-10 font-light leading-relaxed">
-              Discover, analyze, and invest in the next generation of strategies.
-              <br/>
-              From geopolitics to climate science, captured in real-time.
-            </p>
+            <div className="text-2xl md:text-3xl text-gray-200 max-w-4xl mb-12 font-light leading-snug flex flex-wrap items-center justify-center gap-y-2 gap-x-3">
+              <span>AI agents that</span>
+              <RotatingText />
+              <span>so you can Discover more of what you already love</span>
+            </div>
 
             <Link 
               href="/funds" 
@@ -44,7 +45,7 @@ export default function Home() {
             >
               Explore Funds
             </Link>
-          </Glass>
+          </div>
         </div>
       </section>
 
