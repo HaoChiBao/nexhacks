@@ -12,15 +12,18 @@ router = APIRouter()
 def get_supabase() -> Client:
     url = os.getenv("SUPABASE_URL")
     # Prefer Service Role Key for backend operations to bypass RLS
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+    # User provided key might be under SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_SECRET_KEY")
     
+    if key:
+        print("Using Service Role/Secret Key (Bypassing RLS)")
+    else:
+        print("⚠️ WARNING: Service Role Key is missing! Using SUPABASE_KEY (Anon). RLS is likely to block writes.")
+        key = os.getenv("SUPABASE_KEY")
+
     if not url or not key:
         print("CRITICAL: Supabase credentials missing.")
         raise HTTPException(status_code=500, detail="Supabase credentials not configured on server")
-    
-    # Log which key we are using (safety check)
-    key_type = "SERVICE_ROLE" if os.getenv("SUPABASE_SERVICE_ROLE_KEY") else "ANON/DEFAULT"
-    print(f"Initializing Supabase Client ({key_type})")
     
     return create_client(url, key)
 
@@ -111,6 +114,11 @@ def invest_in_fund(req: InvestRequest):
             "balance": new_balance,
             "portfolio": portfolio # Now a list, matching request
         }).eq("id", req.user_id).execute()
+        
+        if not update_res.data:
+             print("❌ Failed to update profile (Rows affected: 0). Possible RLS issue.")
+             raise HTTPException(status_code=500, detail="Database update failed (Profile). Check server logs/permissions.")
+             
         print("✅ Profile updated.")
 
         # 5. Update Fund AUM
@@ -120,10 +128,14 @@ def invest_in_fund(req: InvestRequest):
             current_aum = float(fund_res.data[0].get("aum") or 0)
             new_aum = current_aum + req.amount
             
-            supabase.table("funds").update({
+            aum_update_res = supabase.table("funds").update({
                 "aum": new_aum
             }).eq("id", req.fund_id).execute()
-            print(f"✅ Fund AUM updated: {current_aum} -> {new_aum}")
+            
+            if not aum_update_res.data:
+                 print("⚠️ Failed to update Fund AUM. RLS blocking?")
+            else:
+                 print(f"✅ Fund AUM updated: {current_aum} -> {new_aum}")
         else:
             print("⚠️ Fund not found in 'funds' table, skipping AUM update.")
         
@@ -139,13 +151,16 @@ def invest_in_fund(req: InvestRequest):
                 print("Updating existing user_fund record...")
                 existing_record = uf_res.data[0]
                 new_invested = float(existing_record.get("invested_amount", 0)) + req.amount
-                supabase.table("user_funds").update({
+                res = supabase.table("user_funds").update({
                     "invested_amount": new_invested,
                     "updated_at": "now()"
                 }).eq("id", existing_record["id"]).execute()
+                
+                if not res.data:
+                    raise Exception("Failed to update user_funds record (0 rows).")
             else:
                 print("Inserting new user_fund record...")
-                supabase.table("user_funds").insert({
+                res = supabase.table("user_funds").insert({
                     "user_id": req.user_id,
                     "fund_id": req.fund_id,
                     "name": req.fund_name, 
@@ -153,6 +168,9 @@ def invest_in_fund(req: InvestRequest):
                     "is_public": True, 
                     "allocation_plan": {}
                 }).execute()
+                
+                if not res.data:
+                     raise Exception("Failed to insert user_funds record.")
             print("✅ user_funds synced.")
                 
         except Exception as uf_error:
