@@ -3,7 +3,7 @@ from app.services.portfolio_registry import registry
 from pydantic import BaseModel
 import os
 from supabase import create_client, Client
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ class InvestRequest(BaseModel):
     amount: float
     user_id: str
     fund_name: str
-    fund_logo: str = "" # Optional
+    fund_logo: Optional[str] = ""
 
 @router.get("/")
 def list_portfolios():
@@ -66,7 +66,7 @@ def invest_in_fund(req: InvestRequest):
             funds.append({
                 "id": req.fund_id,
                 "name": req.fund_name,
-                "logo": req.fund_logo,
+                "logo": req.fund_logo or "", # Ensure string
                 "invested_amount": req.amount,
                 "current_value": req.amount,
                 "shares": req.amount / 10.0, # Mock NAV 10
@@ -76,11 +76,26 @@ def invest_in_fund(req: InvestRequest):
         portfolio["funds"] = funds
         new_balance = current_balance - req.amount
         
-        # 4. Save updates
+        # 4. Save updates to Profile
         update_res = supabase.table("profiles").update({
             "balance": new_balance,
             "portfolio": portfolio
         }).eq("id", req.user_id).execute()
+
+        # 5. Update Fund Volume/AUM (Increment)
+        # We need to fetch current volume first to add to it, or use flexible RPC if available.
+        # For simplicity/speed, we fetch-and-update. 
+        # Ideally this would be a Postgres function/RPC for atomicity: increment_fund_volume(id, amount)
+        
+        fund_res = supabase.table("funds").select("volume, aum").eq("id", req.fund_id).execute()
+        if fund_res.data:
+            current_volume = float(fund_res.data[0].get("volume") or 0)
+            current_aum = float(fund_res.data[0].get("aum") or 0)
+            
+            supabase.table("funds").update({
+                "volume": current_volume + req.amount,
+                "aum": current_aum + req.amount
+            }).eq("id", req.fund_id).execute()
         
         return {"status": "success", "new_balance": new_balance, "portfolio": portfolio}
 

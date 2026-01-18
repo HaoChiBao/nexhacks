@@ -110,7 +110,7 @@ export function InvestDrawer() {
             body: JSON.stringify({
                 fund_id: fund.id,
                 fund_name: fund.name,
-                fund_logo: fund.logo, 
+                fund_logo: fund.logo || "", 
                 amount: amount,
                 user_id: user.id
             })
