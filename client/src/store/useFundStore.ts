@@ -6,16 +6,22 @@ interface FundState {
   funds: Fund[]
   isLoading: boolean
   error: string | null
-  fetchFunds: () => Promise<void>
+  fetchFunds: (force?: boolean) => Promise<void>
   addFund: (fund: Fund) => void
 }
 
-export const useFundStore = create<FundState>((set) => ({
+export const useFundStore = create<FundState>((set, get) => ({
   funds: [],
   isLoading: false,
   error: null,
   addFund: (fund) => set((state) => ({ funds: [fund, ...state.funds] })),
-  fetchFunds: async () => {
+  fetchFunds: async (force = false) => {
+    // Prevent duplicate fetches or unnecessary re-fetches
+    if (!force && (get().funds.length > 0 || get().isLoading)) {
+      console.log("Funds already loaded or loading, skipping fetch.");
+      return;
+    }
+
     console.log("Fetching funds from Supabase...");
     set({ isLoading: true, error: null })
     try {
