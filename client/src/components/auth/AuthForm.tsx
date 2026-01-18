@@ -63,6 +63,8 @@ export function AuthForm({ view }: AuthFormProps) {
     setLoading(true)
 
     try {
+      console.log(`[AuthForm] Starting ${view} attempt for:`, email)
+      
       let result;
       
       if (view === 'signup') {
@@ -78,6 +80,7 @@ export function AuthForm({ view }: AuthFormProps) {
       }
 
       const { data, error: authError } = result
+      console.log('[AuthForm] Auth Result:', { user: data.user?.id, session: !!data.session, error: authError })
       
       if (authError) throw authError
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '@/lib/supabase'
+import { publicSupabase } from '@/lib/supabase'
 import { Fund } from '@/lib/data/funds'
 
 interface FundState {
@@ -16,7 +16,7 @@ export const useFundStore = create<FundState>((set) => ({
   fetchFunds: async () => {
     set({ isLoading: true, error: null })
     try {
-      const { data, error } = await supabase
+      const { data, error } = await publicSupabase
         .from('funds')
         .select('*')
       
@@ -44,9 +44,11 @@ export const useFundStore = create<FundState>((set) => ({
 
       set({ funds: mappedFunds })
     } catch (err: any) {
+      if (err.name === 'AbortError' || err.message?.includes('AbortError')) return;
       console.error('Error fetching funds:', err)
       set({ error: err.message })
     } finally {
+      // Only set loading to false if not aborted (optional, but safer to always reset)
       set({ isLoading: false })
     }
   },

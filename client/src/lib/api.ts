@@ -9,9 +9,10 @@ export interface RebalanceResponse {
             outcome: string;
             weight: number;
             rationale: string;
-            citation_url: string;
+            citation_url?: string;
             volume_usd?: number;
             liquidity_usd?: number;
+            last_price?: number;
         }>;
         warnings: string[];
     };
