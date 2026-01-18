@@ -27,22 +27,33 @@ export default function ExploreFundsPage() {
   const filteredFunds = funds.filter(
     (f) => {
         // 1. Search Filter
-        const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            f.thesis.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            f.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+        const query = searchQuery.toLowerCase();
+        
+        // Check if query matches a known category mapping
+        // Custom mapping for demo purposes to match existing tags
+        const tagMap: Record<string, string[]> = {
+            'finance': ['macro', 'rates', 'arb', 'algo'],
+            'tech': ['ai', 'algo'],
+            'world': ['macro'],
+            'news': ['election', 'politics'],
+            'sports': ['sports', 'nfl', 'nba'],
+            'crypto': ['crypto', 'eth', 'btc', 'sol'],
+        };
+
+        // Determine effective tags to search if the query is a category name
+        const expandedTags = tagMap[query] ? tagMap[query] : [query];
+        
+        const matchesSearch = f.name.toLowerCase().includes(query) ||
+            f.thesis.toLowerCase().includes(query) ||
+            f.tags.some(t => {
+                const lowerTag = t.toLowerCase();
+                return expandedTags.some(et => lowerTag.includes(et)) || lowerTag.includes(query);
+            });
         
         // 2. Category Filter
         let matchesCategory = true;
         if (selectedCategory !== "All") {
             const cat = selectedCategory.toLowerCase();
-            // Custom mapping for demo purposes to match existing tags
-            const tagMap: Record<string, string[]> = {
-                'finance': ['macro', 'rates', 'arb', 'algo'],
-                'tech': ['ai', 'algo'],
-                'world': ['macro'],
-                'news': ['election', 'politics'],
-            };
-            
             const relatedTags = tagMap[cat] || [cat];
             
             matchesCategory = f.tags.some(t => {
@@ -54,6 +65,16 @@ export default function ExploreFundsPage() {
         return matchesSearch && matchesCategory;
     }
   );
+
+  // Sort Logic
+  const sortedFunds = [...filteredFunds].sort((a, b) => {
+      if (sortOrder === 'asc') {
+          return (a.metrics.aum || 0) - (b.metrics.aum || 0);
+      } else if (sortOrder === 'desc') {
+          return (b.metrics.aum || 0) - (a.metrics.aum || 0);
+      }
+      return 0;
+  });
 
   return (
     <div className="container mx-auto">
@@ -183,7 +204,7 @@ export default function ExploreFundsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
-                  {filteredFunds.map((fund) => (
+                  {sortedFunds.map((fund) => (
                     <tr key={fund.id} className="hover:bg-gray-800/50 transition-colors group">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
@@ -230,7 +251,7 @@ export default function ExploreFundsPage() {
           ) : (
             /* Grid View */
             <div className="grid gap-6 mb-12 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {filteredFunds.map((fund, index) => (
+              {sortedFunds.map((fund, index) => (
                 <FundCard key={fund.id} fund={fund} index={index} />
               ))}
               

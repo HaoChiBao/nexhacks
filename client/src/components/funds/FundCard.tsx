@@ -62,20 +62,20 @@ export function FundCard({ fund, index }: FundCardProps) {
       >
         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
         
-        {/* Bookmark Icon */}
-        <div className="absolute top-4 right-4 z-10">
-            <div 
-                onClick={handleSave}
-                className="p-2 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors cursor-pointer"
-            >
-                <Bookmark 
-                    className={cn(
-                        "w-5 h-5 transition-all duration-200", 
-                        isSaved ? "fill-white text-white" : "text-white/70 hover:text-white"
-                    )} 
-                />
-            </div>
+        {/* Large Market Volume Text */}
+        <div className="absolute inset-0 flex items-center justify-end pr-4 pointer-events-none z-0">
+             <span 
+                className="text-[5rem] font-bold tracking-tighter leading-none"
+                style={{
+                    color: 'rgba(207, 205, 205, 0.05)',
+                    textShadow: '0px 4px 4px rgba(255, 255, 255, 0.125)'
+                }}
+             >
+                ${fund.metrics.aum}M
+             </span>
         </div>
+        
+
       </div>
 
       <div className="px-6 relative flex-grow">
@@ -133,15 +133,29 @@ export function FundCard({ fund, index }: FundCardProps) {
       </div>
 
       <div className="px-6 pb-6 mt-auto">
-        <button
-            onClick={handleAction}
-          className={cn(
-            "w-full py-2.5 rounded-lg font-bold text-sm transition-all shadow-md bg-white text-gray-900 hover:text-white",
-            `hover:${theme.bgAccent}`
-          )}
-        >
-          Invest Now
-        </button>
+        <div className="flex items-center gap-3">
+            <button
+                onClick={handleAction}
+            className={cn(
+                "flex-1 py-2.5 rounded-lg font-bold text-sm transition-all shadow-md bg-white text-gray-900 hover:text-white",
+                `hover:${theme.bgAccent}`
+            )}
+            >
+            Invest Now
+            </button>
+            <button 
+                onClick={handleSave}
+                className="p-2.5 rounded-lg bg-gray-800 border border-border-dark hover:bg-gray-700 transition-colors"
+                title={isSaved ? "Remove from watchlist" : "Add to watchlist"}
+            >
+                <Bookmark 
+                    className={cn(
+                        "w-5 h-5 transition-colors", 
+                        isSaved ? "fill-primary text-primary" : "text-gray-400"
+                    )} 
+                />
+            </button>
+        </div>
       </div>
     </div>
   );

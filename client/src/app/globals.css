@@ -70,7 +70,7 @@
   100% { transform: translateX(-50%); }
 }
 .animate-scroll {
-  animation: scroll 90s linear infinite;
+  animation: scroll 120s linear infinite;
 }
 .scrollbar-hide::-webkit-scrollbar {
     display: none;

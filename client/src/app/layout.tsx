@@ -8,8 +8,9 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'PrintMoney - Explore Funds',
+  title: 'FanFunds',
   description: 'Invest in high-trust prediction market strategies.',
+  icons: '/f.png',
 };
 
 export default function RootLayout({
