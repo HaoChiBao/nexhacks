@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
-import { Fund } from '@/lib/data/funds'
+import { Fund, funds as localFunds } from '@/lib/data/funds'
 
 interface FundState {
   funds: Fund[]
@@ -63,7 +63,8 @@ export const useFundStore = create<FundState>((set, get) => ({
       set({ funds: mappedFunds })
     } catch (err: any) {
       console.error('Error fetching funds:', err)
-      set({ error: err.message || "Failed to fetch funds" })
+      console.log("Falling back to local JSON data...");
+      set({ funds: localFunds, error: null }) // Fallback to local data
     } finally {
       set({ isLoading: false })
     }
