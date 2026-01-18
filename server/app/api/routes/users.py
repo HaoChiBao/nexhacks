@@ -19,71 +19,76 @@ def get_user_profile(user_id: str):
     """
     try:
         supabase = get_supabase()
+        
+        # 1. Fetch from 'profiles' table (Primary Source)
         res = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
         
-        # If no profile found, we could return 404, but frontend handles nulls.
-        # However, for API consistency:
         if not res.data:
-             # Try creating one? Or let frontend handle?
-             # Based on previous logic, frontend was handling creation. 
-             # Ideally backend handles it too. Let's return 404 and let frontend or logic decide.
-             # Actually, let's replicate the "Self-Healing" logic here?
-             # No, strictly fetch for now.
              raise HTTPException(status_code=404, detail="Profile not found")
              
-        # Fetch investments from user_funds table (New Source of Truth)
+        profile = res.data
+        
+        # 2. Portfolio Parsing & Normalization
+        # The 'portfolio' column might be a JSONB (list/dict) or Text (string).
+        # We ensure it's returned as a usable list.
+        import json
+        
+        raw_portfolio = profile.get("portfolio")
+        
+        if isinstance(raw_portfolio, str):
+            try:
+                # Attempt to parse stringified JSON
+                raw_portfolio = json.loads(raw_portfolio)
+            except json.JSONDecodeError:
+                raw_portfolio = []
+        
+        final_portfolio_list = []
+        
+        # Handle dict format (legacy) vs list format
+        if isinstance(raw_portfolio, dict):
+            final_portfolio_list = raw_portfolio.get("funds", [])
+        elif isinstance(raw_portfolio, list):
+            final_portfolio_list = raw_portfolio
+        
+        # 3. Enrichment from 'user_funds' (Source of Truth for Investments)
+        # We prefer data from the 'user_funds' table if available, as it tracks performance.
         try:
-            # We try to fetch rows that look like investments (have invested_amount > 0)
-            # Checking columns: fund_id, invested_amount, name
-            # Note: The database schema might not have these columns if migration wasn't run.
-            # We select * to get whatever is there.
             inv_res = supabase.table("user_funds").select("*").eq("user_id", user_id).execute()
-            
             if inv_res.data:
-                investments = []
+                enriched_investments = []
                 for row in inv_res.data:
-                    # Filter for investments (heuristic: has fund_id and amount)
-                    if row.get("fund_id") and float(row.get("invested_amount", 0)) > 0:
-                        investments.append({
-                            # User Requested Schema
+                    # Filter for actual investments
+                    if float(row.get("invested_amount", 0)) > 0:
+                        enriched_investments.append({
                             "fund_id": row.get("fund_id"),
-                            "pnl_percent": float(row.get("pnl_percent") or 0), # Assuming column exists or 0
-                            "purchase_date": row.get("created_at"),  # Using creation time as purchase date
-                            "invested_amount": float(row.get("invested_amount", 0)),
-                            
-                            # Frontend Compatibility Keys
-                            "id": row.get("fund_id"), 
-                            "name": row.get("name"),
-                            "current_value": float(row.get("current_value") or row.get("invested_amount", 0)),
+                            "fundName": row.get("name"), # Map for frontend
+                            "fundCategory": "Active",    # Default category
+                            "investedPm": float(row.get("invested_amount", 0)),
+                            "currentNavPm": float(row.get("current_value") or row.get("invested_amount", 0)),
+                            "return30dPct": float(row.get("pnl_percent") or 0),
+                            "topMarkets": [] # Could fetch these if needed
                         })
                 
-                # If we found investments in user_funds, they take precedence over the JSON blob
-                if investments:
-                    # Merge or Replace? User asked to "pull user data based on signed in user"
-                    # implying the table data is what matters.
-                    # We'll set it as the primary list.
-                    profile_data = res.data
-                    if not profile_data.get("portfolio"):
-                        profile_data["portfolio"] = []
+                if enriched_investments:
+                    final_portfolio_list = enriched_investments
                     
-                    # If portfolio is dict {funds: []}, handle that
-                    if isinstance(profile_data["portfolio"], dict):
-                         profile_data["portfolio"]["funds"] = investments
-                    else:
-                         profile_data["portfolio"] = investments # List format
-                         
-                    return profile_data
-
         except Exception as e:
-            # Schema might strictly fail if columns don't exist? Supabase-py select('*') might succeed but return subset?
-            # If it fails, strictly fall back to profile['portfolio'] (legacy)
-            print(f"Warning: Could not fetch user_funds investments: {e}")
+            print(f"Warning: Could not fetch user_funds enrichment: {e}")
 
-        return res.data
+        # Update the profile object with the clean portfolio list
+        profile["portfolio"] = final_portfolio_list
+        
+        # Data Mapping for Frontend Convention (CamelCase / Specific Keys)
+        # The frontend expects 'avatarUrl' but DB has 'avatar_url'
+        # We can transform it here or in frontend. Let's provide both or transform.
+        profile["avatarUrl"] = profile.get("avatar_url", "")
+        profile["name"] = profile.get("full_name", profile.get("email", "User"))
+        profile["handle"] = profile.get("email", "").split("@")[0] # Simple handle derivation
+
+        return profile
+
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        # Supabase-py might raise specific errors for no rows
         print(f"Error fetching profile: {e}")
-        # If it's a "row not found", return 404
-        if "PGRST116" in str(e) or "Results contain 0 rows" in str(e):
-             raise HTTPException(status_code=404, detail="Profile not found")
         raise HTTPException(status_code=500, detail=str(e))

@@ -92,10 +92,21 @@ export function Navbar() {
                   <div className="text-right hidden lg:block">
                     <p className="text-xs text-gray-400">Available Balance</p>
                     <p className="text-sm font-semibold text-white">
-                      ${balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {/* Fix Hydration Error: Only render balance on client */}
+                      <span suppressHydrationWarning>${balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </p>
                   </div>
-                  <UserAvatar user={user} className="cursor-pointer" />
+                  <Link href={`/user/${user.id}`}>
+                      {user.user_metadata?.avatar_url ? (
+                        <img 
+                          src={user.user_metadata.avatar_url} 
+                          alt="Profile" 
+                          className="h-8 w-8 rounded-full border border-white/10 cursor-pointer object-cover hover:ring-2 hover:ring-emerald-500/50 transition-all"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-emerald-400 to-cyan-500 border border-white/10 cursor-pointer hover:ring-2 hover:ring-emerald-500/50 transition-all"></div>
+                      )}
+                  </Link>
                   <Button variant="ghost" size="icon" onClick={() => signOut()} title="Sign out">
                     <LogOut className="h-4 w-4" />
                   </Button>

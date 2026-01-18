@@ -10,20 +10,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { setBalance } = useAppStore()
 
   useEffect(() => {
-    const fetchProfile = async (userId: string) => {
+    const fetchProfile = async (currentUser: any) => {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       try {
-        const res = await fetch(`${API_URL}/users/${userId}/profile`)
+        const res = await fetch(`${API_URL}/users/${currentUser.id}/profile`)
         if (res.ok) {
            const data = await res.json()
            if (data) {
              setBalance(Number(data.balance))
+             
+             // Sync profile data to user metadata
+             const updatedUser = {
+               ...currentUser,
+               user_metadata: {
+                 ...currentUser.user_metadata,
+                 avatar_url: data.avatar_url || currentUser.user_metadata?.avatar_url,
+                 full_name: data.full_name || currentUser.user_metadata?.full_name,
+               }
+             }
+             setUser(updatedUser)
            }
         } else {
            console.error(`Failed to fetch profile: ${res.status} ${res.statusText}`)
            if (res.status === 404) {
-               // Optional: Trigger profile creation via another endpoint if needed, 
-               // but for now we just log as per "pulling" migration task.
                console.log("Profile not found on backend.")
            }
         }
@@ -39,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null)
         
         if (session?.user) {
-          await fetchProfile(session.user.id)
+          await fetchProfile(session.user)
         }
       } catch (error) {
         console.error('Error checking session:', error)
@@ -56,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
       
       if (session?.user) {
-        await fetchProfile(session.user.id)
+        await fetchProfile(session.user)
       }
     })
 
