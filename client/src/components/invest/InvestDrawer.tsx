@@ -18,7 +18,21 @@ import { Slider } from "@/components/ui/slider";
 import * as Switch from "@radix-ui/react-switch";
 import { Info, Lock, Clock, TrendingUp, AlertTriangle, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import Confetti from 'react-confetti';
-import { useWindowSize } from 'react-use'; // Optional: for confetti size, or just default
+// import { useWindowSize } from 'react-use'; // Removed dependency
+
+// Simple hook to reuse
+const useWindowSize = () => {
+    const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+            window.addEventListener('resize', handleResize);
+            handleResize();
+            return () => window.removeEventListener('resize', handleResize);
+        }
+    }, []);
+    return windowSize;
+};
 
 export function InvestDrawer() {
   const router = useRouter();
@@ -42,16 +56,10 @@ export function InvestDrawer() {
   const [transactionStatus, setTransactionStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Use window size for confetti if available, else full screen
-  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-        const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-        window.addEventListener('resize', handleResize);
-        handleResize();
-        return () => window.removeEventListener('resize', handleResize);
-    }
-  }, []);
+  // Use window size for confetti
+  const { width, height } = useWindowSize();
+
+  // If no fund, return null (should be handled by parent/state)
 
 
   // If no fund, return null (should be handled by parent/state)
@@ -151,7 +159,7 @@ export function InvestDrawer() {
         {/* Confetti Overlay */}
         {transactionStatus === "success" && (
             <div className="fixed inset-0 z-50 pointer-events-none">
-                 <Confetti width={windowSize.width} height={windowSize.height} numberOfPieces={500} recycle={false} gravity={0.2} />
+                 <Confetti width={width} height={height} numberOfPieces={500} recycle={false} gravity={0.2} />
             </div>
         )}
 
