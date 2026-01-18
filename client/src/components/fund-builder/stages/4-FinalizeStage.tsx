@@ -185,7 +185,7 @@ export function FinalizeStage() {
           <div className="w-16 h-16 rounded-full bg-emerald-900/20 flex items-center justify-center text-emerald-500 mb-2">
             <FileText className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-bold text-white">FanFunds Research Report</h3>
+          <h3 className="text-lg font-bold text-white">Prismlines Research Report</h3>
           <p className="text-sm text-gray-400 max-w-md">
             Our AI Agent has prepared an in-depth behavioral analysis and fund research report.
             This high-fidelity document will be anchored to your fund.

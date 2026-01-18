@@ -8,8 +8,8 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'FanFunds',
-  description: 'Invest in high-trust prediction market strategies.',
+  title: 'Prismlines',
+  description: 'AI-Powered Prediction Markets',
   icons: '/f.png',
 };
 

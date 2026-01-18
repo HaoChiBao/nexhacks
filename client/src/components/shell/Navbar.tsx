@@ -36,7 +36,7 @@ export function Navbar() {
           <Link href="/funds" className="flex-shrink-0 flex items-center gap-2 cursor-pointer">
             <img src="/f.png" alt="FanFunds Logo" className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-emerald-500/20" />
             <span className="font-bold text-xl tracking-tight text-white">
-              FanFunds
+              Prismlines
             </span>
           </Link>
 
@@ -79,7 +79,7 @@ export function Navbar() {
                     <h3 className="text-sm font-semibold text-white mb-2">Notifications</h3>
                     <div className="space-y-2">
                         <div className="p-2 bg-gray-800/50 rounded text-xs text-gray-300">
-                            Welcome to FanFunds! Start exploring prediction funds.
+                            Welcome to Prismlines! Start exploring prediction funds.
                         </div>
                     </div>
                  </div>

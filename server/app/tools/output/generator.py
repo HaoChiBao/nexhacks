@@ -111,7 +111,7 @@ def generate_allocation_proposal(plan: AllocationPlan, portfolio_name: str) -> s
 def generate_scientific_pdf(research: ResearchResult, portfolio: PortfolioDefinition) -> str:
     """
     Generates a professional, scientific-style PDF report using fpdf2.
-    Featured branding: FanFunds.
+    Featured branding: Prismlines.
     Featured content: Deep Analytical Thesis Discourse.
     """
     class ScientificPDF(FPDF):
@@ -119,14 +119,14 @@ def generate_scientific_pdf(research: ResearchResult, portfolio: PortfolioDefini
             self.set_font("helvetica", "I", 8)
             page_width = self.w - 2 * self.l_margin
             col_width = page_width / 2
-            self.cell(col_width, 10, f"FANFUNDS QUANTITATIVE RESEARCH Vol. 1 Issue {datetime.now().month}", border=0, align="L")
-            self.cell(col_width, 10, "https://fanfunds.ai/research", border=0, align="R", ln=True)
+            self.cell(col_width, 10, f"PRISMLINES QUANTITATIVE RESEARCH Vol. 1 Issue {datetime.now().month}", border=0, align="L")
+            self.cell(col_width, 10, "https://prismlines.ai/research", border=0, align="R", ln=True)
             self.ln(5)
 
         def footer(self):
             self.set_y(-15)
             self.set_font("helvetica", "I", 8)
-            self.cell(0, 10, f"Page {self.page_no()} | FANFUNDS AI AGENTIC RESEARCH UNIT", align="C")
+            self.cell(0, 10, f"Page {self.page_no()} | PRISMLINES AI AGENTIC RESEARCH UNIT", align="C")
 
     # Use A4, unit mm
     pdf = ScientificPDF(orientation='P', unit='mm', format='A4')
@@ -135,21 +135,21 @@ def generate_scientific_pdf(research: ResearchResult, portfolio: PortfolioDefini
     
     # Paper Type
     pdf.set_font("helvetica", "I", 10)
-    pdf.cell(0, 10, "FanFunds Proprietary Investment Thesis & Behavioral Analysis", ln=True)
+    pdf.cell(0, 10, "Prismlines Proprietary Investment Thesis & Behavioral Analysis", ln=True)
     
     # Title
     pdf.set_x(20)
     pdf.set_font("helvetica", "B", 18)
     pdf.ln(5)
-    pdf.multi_cell(170, 10, sanitize_for_pdf(f"FanFunds Behavioral Mapping: {portfolio.name}"), align="L")
+    pdf.multi_cell(170, 10, sanitize_for_pdf(f"Prismlines Behavioral Mapping: {portfolio.name}"), align="L")
     
     # Authors
     pdf.ln(5)
     pdf.set_x(20)
     pdf.set_font("helvetica", "", 11)
-    pdf.cell(0, 7, "FanFunds Agent Alpha-1 (Quantitative Behavioral Research Unit)", ln=True)
+    pdf.cell(0, 7, "Prismlines Agent Alpha-1 (Quantitative Behavioral Research Unit)", ln=True)
     pdf.set_font("helvetica", "I", 9)
-    pdf.cell(0, 5, "FanFunds Protocol Decentralized Intelligence Environment", ln=True)
+    pdf.cell(0, 5, "Prismlines Protocol Decentralized Intelligence Environment", ln=True)
     
     # Horizontal Rule
     pdf.ln(5)
@@ -203,7 +203,7 @@ def generate_scientific_pdf(research: ResearchResult, portfolio: PortfolioDefini
     pdf.cell(0, 7, "Investment Signaling Sources (Bibliographic)", ln=True)
     pdf.set_font("helvetica", "", 8)
     for i, item in enumerate(research.evidence_items, 1):
-        title = item.get("title", "FanFunds Intelligence Node")
+        title = item.get("title", "Prismlines Intelligence Node")
         url = item.get("url", "N/A")
         pdf.set_x(20)
         pdf.multi_cell(170, 4, sanitize_for_pdf(f"[{i}] {title}. Retrieval Link: {url}"))
@@ -217,7 +217,7 @@ def generate_scientific_pdf(research: ResearchResult, portfolio: PortfolioDefini
         else:
             pdf_bytes = bytes(pdf_content)
     except Exception as e:
-        print(f"FanFunds PDF Generation Error: {e}")
+        print(f"Prismlines PDF Generation Error: {e}")
         return ""
 
     return base64.b64encode(pdf_bytes).decode("utf-8")

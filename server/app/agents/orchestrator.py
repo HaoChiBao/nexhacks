@@ -27,5 +27,5 @@ async def orchestrator_node(state: AgentState) -> AgentState:
         "summary_markdown": None,
         "proposal_json": None,
         "report_pdf": report_pdf_b64,
-        "messages": ["FanFunds research unit completed behavioral mapping and generated PDF report."]
+        "messages": ["Prismlines research unit completed behavioral mapping and generated PDF report."]
     }

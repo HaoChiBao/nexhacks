@@ -98,19 +98,18 @@ def invest_in_fund(req: InvestRequest):
             "portfolio": portfolio
         }).eq("id", req.user_id).execute()
 
-        # 5. Update Fund Volume/AUM (Increment)
-        # We need to fetch current volume first to add to it, or use flexible RPC if available.
-        # For simplicity/speed, we fetch-and-update. 
-        # Ideally this would be a Postgres function/RPC for atomicity: increment_fund_volume(id, amount)
+        # 5. Update Fund AUM (Total Liquidity/Volume)
+        # We fetch current AUM and increment it.
         
-        fund_res = supabase.table("funds").select("volume, aum").eq("id", req.fund_id).execute()
+        fund_res = supabase.table("funds").select("aum").eq("id", req.fund_id).execute()
         if fund_res.data:
-            current_volume = float(fund_res.data[0].get("volume") or 0)
             current_aum = float(fund_res.data[0].get("aum") or 0)
+            new_aum = current_aum + req.amount
             
+            # Update the AUM in the funds table
+            # Note: This controls the "Volume" displayed on the frontend logic
             supabase.table("funds").update({
-                "volume": current_volume + req.amount,
-                "aum": current_aum + req.amount
+                "aum": new_aum
             }).eq("id", req.fund_id).execute()
         
         return {"status": "success", "new_balance": new_balance, "portfolio": portfolio}
