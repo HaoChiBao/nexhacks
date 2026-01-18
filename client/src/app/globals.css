@@ -65,11 +65,17 @@
   background: #3f3f46;
 }
 
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
-
-.scrollbar-none {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+.animate-scroll {
+  animation: scroll 90s linear infinite;
 }
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+} /* Firefox */
