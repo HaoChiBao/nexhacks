@@ -124,14 +124,28 @@ def create_allocation_plan(
         # Pick top 1
         final_picks.append(group_list[0])
         
-    # Phase 3: Allocate
-    # Equal weight across Final Picks
+    # Phase 3: Allocate (Confidence Weighted)
+    # Instead of equal weight, we scale weights by confidence
+    total_confidence = sum(p["confidence"] for p in final_picks)
+    if total_confidence <= 0:
+        return AllocationPlan(targets=[], trades=[], warnings=["Total confidence was zero."])
+
+    # We want to fill up to bankroll, but respect max_position_pct
+    # Target total exposure (can be < 1.0 if few picks)
     count = len(final_picks)
-    raw_weight = 1.0 / count
-    weight = min(raw_weight, risk.max_position_pct)
+    max_total_exposure = min(1.0, count * risk.max_position_pct)
     
+    # Calculate raw weights based on confidence
+    for pick in final_picks:
+        # Normalized weight: (conf / total_conf) * max_total_exposure
+        raw_conf_weight = (pick["confidence"] / total_confidence) * max_total_exposure
+        # Apply per-position cap
+        pick["final_weight"] = min(raw_conf_weight, risk.max_position_pct)
+    
+    # Final Pass to build plan
     for pick in final_picks:
         m = pick["market"]
+        weight = pick["final_weight"]
         target_usd = weight * bankroll
         
         targets.append(TargetAllocation(
@@ -153,7 +167,7 @@ def create_allocation_plan(
             outcome=pick["outcome"],
             side="BUY", 
             amount_usd=target_usd,
-            reason="High conviction top pick"
+            reason=f"Confidence-weighted allocation ({pick['confidence']}%)"
         ))
         
         total_alloc_usd += target_usd
@@ -161,5 +175,5 @@ def create_allocation_plan(
     return AllocationPlan(
         targets=targets,
         trades=trades,
-        warnings=[f"Allocated ${total_alloc_usd} out of ${bankroll} across {len(final_picks)} high-conviction events."]
+        warnings=[f"Confidence-weighted allocation complete. Allocated ${total_alloc_usd:.2f} across {len(final_picks)} events."]
     )
