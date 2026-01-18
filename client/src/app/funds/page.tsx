@@ -6,6 +6,7 @@ import { useFundStore } from "@/store/useFundStore";
 import { FundCard } from "@/components/funds/FundCard";
 import { Search, Grid, List, ChevronDown, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 export default function ExploreFundsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,9 +46,11 @@ export default function ExploreFundsPage() {
         <div className="flex items-center gap-3">
           <div className="relative group">
             <div className="absolute -inset-0.5 bg-primary rounded-lg blur opacity-30 group-hover:opacity-60 transition duration-200"></div>
-            <button className="relative flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">
-              <Plus className="w-4 h-4" /> Create Fund
-            </button>
+            <Link href="/create-fund">
+              <button className="relative flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">
+                <Plus className="w-4 h-4" /> Create Fund
+              </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -128,9 +131,11 @@ export default function ExploreFundsPage() {
               <p className="text-gray-400 text-center max-w-xs px-4 mb-6">
                   Have a winning strategy? Launch a prediction fund and earn performance fees.
               </p>
-              <button className="px-6 py-2 rounded-lg border border-primary text-primary font-semibold hover:bg-primary hover:text-white transition-colors">
-                  Start Application
-              </button>
+              <Link href="/create-fund">
+                  <button className="px-6 py-2 rounded-lg border border-primary text-primary font-semibold hover:bg-primary hover:text-white transition-colors">
+                      Start Application
+                  </button>
+              </Link>
           </div>
         </div>
       )}

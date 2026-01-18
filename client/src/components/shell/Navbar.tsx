@@ -18,6 +18,7 @@ export function Navbar() {
 
   const navLinks = [
     { name: "Explore Funds", href: "/funds" },
+    { name: "Create Fund", href: "/create-fund" },
     { name: "Portfolio", href: "#" },
     { name: "Predictions", href: "#" },
     { name: "Audit Logs", href: "/audit" },
