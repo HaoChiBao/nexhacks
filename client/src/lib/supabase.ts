@@ -9,12 +9,13 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUB_KEY ||
                     process.env.SUPABASE_PUB_KEY || 
                     process.env.SUPABASE_KEY
 
-if (!supabaseUrl) {
-  throw new Error('Missing Supabase URL. Please set NEXT_PUBLIC_SUPABASE_URL in your environment variables.')
+if (!supabaseUrl || !supabaseKey) {
+  console.warn("Supabase credentials missing! Using (non-functional) placeholders to prevent crash.")
+  console.warn("Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.")
 }
 
-if (!supabaseKey) {
-  throw new Error('Missing Supabase Key. Please set NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_KEY) in your environment variables.')
-}
+// Use placeholders if missing to allow app initialization
+const finalUrl = supabaseUrl || "https://placeholder.supabase.co"
+const finalKey = supabaseKey || "placeholder"
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createClient(finalUrl, finalKey)
