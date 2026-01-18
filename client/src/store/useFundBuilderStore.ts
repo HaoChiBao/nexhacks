@@ -10,15 +10,15 @@ interface FundBuilderState {
   createdDocs: CreatedDoc[]
   resourceLinks: { title: string, url: string }[]
   isAnalyzing: boolean
-  
+
   // Actions
   setStage: (stage: FundBuilderStage) => void
   updateDraft: (updates: Partial<FundDraft>) => void
   resetDraft: () => void
-  
+
   // Agent Actions
   addAgentEvent: (event: Omit<AgentEvent, 'id' | 'timestamp'>) => void
-  runMockAnalysis: (topic: string) => Promise<void>
+  runAnalysis: (topic: string) => Promise<any>
   runMarketScan: () => Promise<void>
 }
 
@@ -56,13 +56,13 @@ export const useFundBuilderStore = create<FundBuilderState>()(
       isAnalyzing: false,
 
       setStage: (stage) => set({ currentStage: stage }),
-      
-      updateDraft: (updates) => set((state) => ({ 
-        draft: { ...state.draft, ...updates } 
+
+      updateDraft: (updates) => set((state) => ({
+        draft: { ...state.draft, ...updates }
       })),
 
-      resetDraft: () => set({ 
-        currentStage: 'RESEARCH', 
+      resetDraft: () => set({
+        currentStage: 'RESEARCH',
         draft: { ...INITIAL_DRAFT, id: crypto.randomUUID() },
         agentEvents: [],
         createdDocs: [],
@@ -76,56 +76,131 @@ export const useFundBuilderStore = create<FundBuilderState>()(
         ]
       })),
 
-      runMockAnalysis: async (topic) => {
-        const { addAgentEvent } = get()
+      runAnalysis: async (topic: string) => {
+        const { addAgentEvent, updateDraft } = get()
         set({ isAnalyzing: true })
-        
-        // Mock Sequence
+
         addAgentEvent({ title: 'Topic Defined', message: topic, status: 'running', type: 'thinking' })
-        
-        await new Promise(r => setTimeout(r, 1200))
-        addAgentEvent({ title: 'Fetching sources', message: 'Checking 50+ signal aggregators...', status: 'running', type: 'thinking' })
-        
-        await new Promise(r => setTimeout(r, 1500))
-        set({ 
-          resourceLinks: [
-            { title: 'Risk_Assessment_v2.pdf', url: '#' },
-            { title: 'Correlation_Data.csv', url: '#' }
-          ] 
-        })
-        addAgentEvent({ title: 'Analysis Complete', message: 'Found 8 high-signal prediction lines.', status: 'done', type: 'resource' })
-        
+
+        // Start "Thinking" Simulation Loop
+        const thoughts = [
+          "Research Agent: Scanning trusted sources (Reuters, Bloomberg, Polymarket)...",
+          "Research Agent: Filtering irrelevant volatility...",
+          "Research Agent: Synthesizing cross-market signals...",
+          "Allocator Agent: Fetching live orderbooks via Gamma API...",
+          "Allocator Agent: Screening for minimum liquidity ($50k+)...",
+          "Allocator Agent: Analyzing historical spread and slippage...",
+          "Allocator Agent: Calculating optimal Kelly criteria weights...",
+          "Allocator Agent: Finalizing basket composition..."
+        ];
+
+        let thoughtIndex = 0;
+        const thinkingInterval = setInterval(() => {
+          if (thoughtIndex < thoughts.length) {
+            const [role, msg] = thoughts[thoughtIndex].split(': ');
+            addAgentEvent({
+              title: role,
+              message: msg,
+              status: 'running',
+              type: 'thinking'
+            });
+            thoughtIndex++;
+          }
+        }, 2000); // New thought every 2s
+
+        try {
+          // Dynamic import to avoid circular dependencies if any, though likely safe here
+          const { fetchRebalance } = await import("@/lib/api");
+
+          const data = await fetchRebalance(topic, topic); // Use topic as description for now
+
+          clearInterval(thinkingInterval); // Stop thinking
+
+          if (data) {
+            const holdings = data.plan.targets.map(t => ({
+              id: t.market_id,
+              question: t.question || t.event_title || "Unknown Market",
+              slug: t.market_slug,
+              source: "Polymarket",
+              volume: t.volume_usd || 0,
+              liquidity: t.liquidity_usd || 0,
+              expiryDate: "2025-12-31",
+              category: "Generated",
+              correlationScore: t.outcome === 'YES' ? 0.99 : 0.01, // Hack: Store side in correlation for now or just trust outcome field
+              cluster: t.outcome === 'YES' ? 'Likely' : 'Unlikely',
+              tags: [],
+              lastPrice: t.last_price || 0,
+              targetWeight: t.weight * 100,
+              locked: false,
+              outcome: t.outcome,
+              reasoning: t.rationale
+            }));
+
+            updateDraft({
+              holdings: holdings as any,
+              name: topic,
+              // thesis: cleanThesis, // Don't overwrite user input
+              reportMarkdown: data.recommendation
+            });
+
+            addAgentEvent({
+              title: 'Analysis Complete',
+              message: `Found ${holdings.length} opportunities.`,
+              status: 'done',
+              type: 'resource'
+            })
+
+            set({
+              resourceLinks: data.research.evidence_items.map((item, i) => ({
+                title: item.title || `Source ${i + 1}`,
+                url: item.url
+              }))
+            })
+
+            set({ isAnalyzing: false })
+            return data; // Return data for UI side-effects
+
+          } else {
+            addAgentEvent({ title: 'Analysis Failed', message: 'No data returned.', status: 'failed', type: 'thinking' })
+          }
+        } catch (e) {
+          clearInterval(thinkingInterval);
+          console.error(e)
+          addAgentEvent({ title: 'Error', message: 'System error during analysis.', status: 'failed', type: 'thinking' })
+        }
+
         set({ isAnalyzing: false })
+        return null;
       },
 
       runMarketScan: async () => {
-         const { draft, addAgentEvent, updateDraft } = get()
-         set({ isAnalyzing: true })
+        const { draft, addAgentEvent, updateDraft } = get()
+        set({ isAnalyzing: true })
 
-         addAgentEvent({ title: 'Scanning Markets', message: `Applying rules: ${draft.universeRules.includeTags.join(', ')}`, status: 'running', type: 'thinking' })
-         
-         const results = await scanMarketUniverse(draft.universeRules)
-         
-         // Convert to Holdings with default equal weight
-         const holdings = results.map(line => ({
-             ...line,
-             targetWeight: 0,
-             locked: false
-         }))
+        addAgentEvent({ title: 'Scanning Markets', message: `Applying rules: ${draft.universeRules.includeTags.join(', ')}`, status: 'running', type: 'thinking' })
 
-         updateDraft({ holdings })
-         
-         await new Promise(r => setTimeout(r, 800))
-         addAgentEvent({ title: 'Clustering Liquidity', message: 'Grouping similar markets to minimize slippage.', status: 'done', type: 'thinking' })
-         
-         set({ isAnalyzing: false })
+        const results = await scanMarketUniverse(draft.universeRules)
+
+        // Convert to Holdings with default equal weight
+        const holdings = results.map(line => ({
+          ...line,
+          targetWeight: 0,
+          locked: false
+        }))
+
+        updateDraft({ holdings })
+
+        await new Promise(r => setTimeout(r, 800))
+        addAgentEvent({ title: 'Clustering Liquidity', message: 'Grouping similar markets to minimize slippage.', status: 'done', type: 'thinking' })
+
+        set({ isAnalyzing: false })
       }
     }),
     {
       name: 'fund-builder-storage',
-      partialize: (state) => ({ 
-          draft: state.draft, 
-          currentStage: state.currentStage 
+      partialize: (state) => ({
+        draft: state.draft,
+        currentStage: state.currentStage
       }) // Persist only draft and stage
     }
   )

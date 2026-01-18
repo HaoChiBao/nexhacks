@@ -51,18 +51,30 @@ async def fetch_markets(
 
             markets = process_events(data)
             
-            # Attempt 2: Firehose if Attempt 1 failed
-            if not markets:
-                print(f"--- [Gamma Client] ⚠️ Query '{query}' returned 0 results. Switching to Firehose (Top 500)...")
-                # Fetch top 500 trending/active events
-                firehose_params = {"limit": 500, "closed": "false", "order": "volume24hr"}
-                if tags:
-                    firehose_params["tag"] = tags
-                
+            # Attempt 2: Firehose (ALWAYS valid to supplement specific query)
+            # Fetch top 1000 trending/active events to catch broader topic coverage
+            print(f"--- [Gamma Client] 🌊 Fetching Firehose (Top 1000) to ensure coverage...")
+            firehose_params = {"limit": 1000, "closed": "false", "order": "volume24hr"}
+            if tags:
+                firehose_params["tag"] = tags
+            
+            try:
                 resp = await client.get(f"{BASE_URL}/events", params=firehose_params)
                 resp.raise_for_status()
                 firehose_data = resp.json()
-                markets = process_events(firehose_data)
+                firehose_markets = process_events(firehose_data)
+                
+                # Merge and Deduplicate
+                existing_ids = set(m.get("id") for m in markets)
+                for fm in firehose_markets:
+                    if fm.get("id") not in existing_ids:
+                        markets.append(fm)
+                        existing_ids.add(fm.get("id"))
+                        
+            except Exception as e:
+                print(f"Error fetching firehose: {e}")
+                # Don't fail completely if firehose fails, just return what we have
+                pass
 
         except Exception as e:
             print(f"Error fetching markets: {e}")

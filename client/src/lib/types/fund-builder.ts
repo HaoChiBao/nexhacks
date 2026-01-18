@@ -21,6 +21,7 @@ export interface RiskRules {
 export interface MarketLine {
   id: string;
   question: string;
+  slug?: string;
   source: string; // 'Polymarket'
   volume: number;
   liquidity: number;
@@ -28,9 +29,11 @@ export interface MarketLine {
   category: string;
   // Computed/Mock properties
   correlationScore: number; // 0-1
-  cluster: 'High Liquidity' | 'High Correlation' | 'Diversification' | null;
+  cluster: string | null; // e.g., 'High Liquidity', 'High Probability'
   tags: string[];
+  outcome?: string; // 'YES' or 'NO'
   lastPrice: number;
+  reasoning?: string;
 }
 
 export interface Holding extends MarketLine {
@@ -48,6 +51,7 @@ export interface FundDraft {
   riskRules: RiskRules;
   holdings: Holding[];
   status: 'DRAFT' | 'PUBLISHED';
+  reportMarkdown?: string;
 }
 
 export interface AgentEvent {
