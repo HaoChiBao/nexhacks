@@ -17,7 +17,7 @@ export function AgentConsole() {
           {isAnalyzing && <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
         </div>
 
-        <div className="p-3 overflow-y-auto space-y-4 flex-grow scrollbar-none">
+        <div className="p-3 overflow-y-auto space-y-4 flex-grow scrollbar-hide">
           {agentEvents.map((event, idx) => (
             <div key={event.id} className={cn(
               "relative pl-4 border-l transition-opacity duration-300",

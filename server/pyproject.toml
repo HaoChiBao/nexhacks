@@ -15,6 +15,7 @@ dependencies = [
     "python-dotenv",
     "tavily-python",
     "beautifulsoup4",
+    "fpdf",
 ]
 
 [project.optional-dependencies]

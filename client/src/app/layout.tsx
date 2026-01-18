@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { Navbar } from '@/components/shell/Navbar';
+import { AppLayout } from '@/components/shell/AppLayout';
 import { InvestDrawer } from '@/components/invest/InvestDrawer';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 
@@ -28,10 +28,9 @@ export default function RootLayout({
         </div>
 
         <AuthProvider>
-          <Navbar />
-          <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[calc(100vh-64px)]">
+          <AppLayout>
             {children}
-          </main>
+          </AppLayout>
           
           {/* Global Drawers */}
           <InvestDrawer />

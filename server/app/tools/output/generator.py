@@ -111,11 +111,6 @@ def generate_allocation_proposal(plan: AllocationPlan, portfolio_name: str) -> s
 def generate_scientific_pdf(research: ResearchResult, portfolio: PortfolioDefinition) -> str:
     """
     Generates a professional, scientific-style PDF report using fpdf2.
-    Returns the PDF as a base64 encoded string.
-    """
-def generate_scientific_pdf(research: ResearchResult, portfolio: PortfolioDefinition) -> str:
-    """
-    Generates a professional, scientific-style PDF report using fpdf2.
     Featured branding: FanFunds.
     Featured content: Deep Analytical Thesis Discourse.
     """
@@ -215,9 +210,12 @@ def generate_scientific_pdf(research: ResearchResult, portfolio: PortfolioDefini
 
     # Output to base64
     try:
-        pdf_bytes = pdf.output()
-        if not isinstance(pdf_bytes, bytes):
-            pdf_bytes = bytes(pdf_bytes)
+        # dest='S' returns as string in FPDF 1.7.2
+        pdf_content = pdf.output(dest='S')
+        if isinstance(pdf_content, str):
+            pdf_bytes = pdf_content.encode('latin-1')
+        else:
+            pdf_bytes = bytes(pdf_content)
     except Exception as e:
         print(f"FanFunds PDF Generation Error: {e}")
         return ""

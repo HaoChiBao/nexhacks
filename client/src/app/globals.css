@@ -72,6 +72,14 @@
 .animate-scroll {
   animation: scroll 120s linear infinite;
 }
+
+@keyframes scroll-up {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+.animate-scroll-up {
+  animation: scroll-up 60s linear infinite;
+}
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
 }

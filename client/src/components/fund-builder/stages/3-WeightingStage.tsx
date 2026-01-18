@@ -26,12 +26,65 @@ export function WeightingStage() {
         setTotalWeight(draft.holdings.reduce((sum, h) => sum + h.targetWeight, 0));
     }, [draft.holdings]);
 
-    const handleWeightChange = (id: string, val: number) => {
-        const updated = draft.holdings.map(h => h.id === id ? { ...h, targetWeight: val } : h);
+    const handleWeightChange = (id: string, newVal: number) => {
+        // Enforce bounds (1% to 100%)
+        const clampedVal = Math.max(1, Math.min(100, newVal));
+        
+        const currentLine = draft.holdings.find(h => h.id === id);
+        if (!currentLine) return;
+        
+        const oldVal = currentLine.targetWeight;
+        if (oldVal === clampedVal) return; // No change
+
+        // Calculate delta to distribute among others
+        const diff = clampedVal - oldVal;
+        
+        // Find other lines to adjust
+        const others = draft.holdings.filter(h => h.id !== id);
+        const othersTotalWeight = others.reduce((sum, h) => sum + h.targetWeight, 0);
+
+        let updated = [...draft.holdings];
+
+        if (others.length === 0) {
+             // Only one item? It must be 100%.
+             updated = updated.map(h => h.id === id ? { ...h, targetWeight: 100 } : h);
+        } else if (othersTotalWeight === 0) {
+             // If others are all 0, distribute evenly
+             const split = (100 - clampedVal) / others.length;
+             updated = updated.map(h => h.id === id ? { ...h, targetWeight: clampedVal } : { ...h, targetWeight: split });
+        } else {
+             // Proportional distribution
+             // New weight for others = Current * (Remaining / OldRemaining)
+             // Simpler: Current - (Current / OthersTotal) * diff
+             // This reduces others if we increased target, increases if we decreased.
+             
+             updated = updated.map(h => {
+                 if (h.id === id) return { ...h, targetWeight: clampedVal };
+                 
+                 // How much of the "diff" does this line absorb?
+                 const share = h.targetWeight / othersTotalWeight;
+                 let newW = h.targetWeight - (diff * share);
+                 
+                 // Clamp others too to avoid negative
+                 return { ...h, targetWeight: Math.max(0, newW) };
+             });
+             
+             // Final pass to ensure exact 100 sum (fix rounding/clamping drift)
+             const tempSum = updated.reduce((sum, h) => sum + h.targetWeight, 0);
+             if (Math.abs(tempSum - 100) > 0.01) {
+                  // Dump remainder into the one we just moved? Or the largest?
+                  // Let's put it on the current one to allow it to "fight" back if needed, 
+                  // or just normalize all.
+                  // Simplest: Normalize all to 100
+                  updated = updated.map(h => ({ ...h, targetWeight: (h.targetWeight / tempSum) * 100 }));
+             }
+        }
+        
         updateDraft({ holdings: updated });
     };
 
     const autoBalance = () => {
+        if (draft.holdings.length === 0) return;
         const equalShare = 100 / draft.holdings.length;
         const updated = draft.holdings.map(h => ({ ...h, targetWeight: equalShare }));
         updateDraft({ holdings: updated });

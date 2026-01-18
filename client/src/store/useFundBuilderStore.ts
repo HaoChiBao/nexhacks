@@ -126,7 +126,7 @@ export const useFundBuilderStore = create<FundBuilderState>()(
             cluster: t.outcome === 'YES' ? 'Likely' : 'Unlikely',
             tags: [],
             lastPrice: t.last_price || 0,
-            targetWeight: t.weight * 100,
+            targetWeight: t.weight > 1 ? t.weight : t.weight * 100,
             locked: false,
             outcome: t.outcome,
             reasoning: t.rationale

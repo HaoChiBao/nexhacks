@@ -8,6 +8,8 @@ export interface Holding {
   prob: number;
   expiry: string;
   return?: number;
+  description?: string;
+  rationale?: string;
 }
 
 export interface Fund {

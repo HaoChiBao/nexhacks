@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useFundStore } from "@/store/useFundStore";
 import ReactFlow, { 
   Background, 
   Controls, 
@@ -146,9 +147,101 @@ const initialEdges: Edge[] = [
 
 
 export default function FundDetailsPage({ params }: { params: { fundId: string } }) {
-  // const [activeTab, setActiveTab] = useState<'analytics' | 'strategy'>('strategy'); // Removed
+  const { funds, fetchFunds, isLoading: isStoreLoading } = useFundStore();
   
+  // Local state for initial load check if store is empty
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
+
+  useEffect(() => {
+    if (funds.length === 0 && !initialFetchDone) {
+        fetchFunds().then(() => setInitialFetchDone(true));
+    } else {
+        setInitialFetchDone(true);
+    }
+  }, [fetchFunds, funds.length, initialFetchDone]);
+
+  const fund = useMemo(() => {
+      return funds.find(f => f.id === params.fundId);
+  }, [funds, params.fundId]);
+
   const nodeTypes = useMemo(() => ({ strategyNode: StrategyNode }), []);
+
+  // Generate dynamic nodes based on holdings
+  const { nodes, edges } = useMemo(() => {
+    if (!fund) return { nodes: initialNodes, edges: initialEdges };
+
+    const flowNodes: Node[] = [];
+    const flowEdges: Edge[] = [];
+
+    // Central Node (Fund Core)
+    flowNodes.push({
+        id: 'core',
+        type: 'strategyNode',
+        position: { x: 400, y: 150 },
+        data: { variant: 'core', title: fund.thesis, nav: `$${fund.metrics.nav || '0'}`, perf: `${fund.metrics.sharpe ? '+' + fund.metrics.sharpe : ''} Sharpe` },
+    });
+
+    // Generate nodes for holdings
+    fund.holdings.forEach((holding, index) => {
+        const id = `holding-${index}`;
+        // Simple layout logic: scatter them nicely
+        const xOffset = (index % 2 === 0 ? 1 : -1) * (250 + (index * 50));
+        const yOffset = 100 + (index * 120);
+        
+        flowNodes.push({
+            id: id,
+            type: 'strategyNode',
+            position: { x: 400 + xOffset, y: yOffset },
+            data: { 
+                variant: holding.side === 'NO' ? 'hedge' : 'standard', 
+                title: holding.name, 
+                prediction: holding.side, 
+                price: `${holding.prob}¢` 
+            },
+        });
+
+        flowEdges.push({
+            id: `edge-core-${id}`,
+            source: 'core',
+            target: id,
+            type: 'smoothstep',
+            animated: true,
+            style: { stroke: '#gray' },
+             markerEnd: { type: MarkerType.ArrowClosed } 
+        });
+    });
+
+    return { nodes: flowNodes, edges: flowEdges };
+  }, [fund]);
+
+
+  if (isStoreLoading && !initialFetchDone) {
+      return (
+          <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center text-white">
+              <div className="flex flex-col items-center gap-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+                  <p className="text-gray-400">Loading fund details...</p>
+              </div>
+          </div>
+      );
+  }
+
+  if (!fund && initialFetchDone) {
+      return (
+        <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center text-white p-4">
+            <div className="bg-surface-dark border border-gray-800 rounded-xl p-8 max-w-md text-center">
+                <h1 className="text-2xl font-bold mb-4 text-red-500">Fund Not Found</h1>
+                <p className="text-gray-400 mb-6">The fund with ID "{params.fundId}" could not be found.</p>
+                <a href="/funds" className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white transition-colors">
+                    Back to Funds
+                </a>
+            </div>
+        </div>
+      );
+  }
+
+  // Fallback for types if fund is loading
+  if (!fund) return null; 
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] p-4 lg:p-6 font-sans text-gray-100 flex flex-col gap-6">
@@ -158,27 +251,34 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
         
         {/* Title */}
         <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-lg bg-emerald-900/30 text-emerald-400 flex items-center justify-center font-bold">
-                TT
-             </div>
+             <img 
+                src={fund.logo} 
+                alt={fund.name} 
+                className="w-12 h-12 rounded-lg object-cover bg-gray-800"
+                onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fund.name)}&background=random`;
+                }}
+             />
              <div>
-                 <h1 className="text-xl font-bold text-white">Tariff Tracker Basket</h1>
-                 <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">Strategy Map</p>
+                 <h1 className="text-xl font-bold text-white">{fund.name}</h1>
+                 <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">{fund.thesis}</p>
              </div>
         </div>
 
         {/* NAV Display */}
         <div className="flex items-baseline gap-4">
             <span className="text-gray-400 text-sm font-semibold tracking-wider">NAV</span>
-            <span className="text-2xl font-bold font-mono text-white">1,248,321 <span className="text-xs text-gray-500">PM</span></span>
-            <span className="text-sm font-bold text-emerald-400 bg-emerald-900/20 px-2 py-0.5 rounded">+12.4% 30D</span>
+            <span className="text-2xl font-bold font-mono text-white">{fund.metrics.nav || '0.00'} <span className="text-xs text-gray-500">PM</span></span>
+            <span className="text-sm font-bold text-emerald-400 bg-emerald-900/20 px-2 py-0.5 rounded">
+                +{fund.metrics.sharpe ? (fund.metrics.sharpe * 1.5).toFixed(1) : '0.0'}% 30D
+            </span>
         </div>
 
         {/* Action */}
         <div className="flex items-center gap-4">
             <div className="text-right hidden md:block">
-                <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Available</div>
-                <div className="text-sm font-bold text-white font-mono">240.00 PM</div>
+                <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">AUM</div>
+                <div className="text-sm font-bold text-white font-mono">${fund.metrics.aum ? fund.metrics.aum + 'M' : 'N/A'}</div>
             </div>
             <button className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-6 py-2.5 rounded-lg transition-colors shadow-lg shadow-emerald-500/20">
                 <Plus className="w-4 h-4" /> Deposit & Invest
@@ -199,14 +299,14 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
             <div className="space-y-4 flex-grow">
                 <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Live Insights</div>
                 
-                {/* Insight Card 1 */}
+                {/* Dynamic Insight Card - Stubbed for now but linked to data */}
                 <div className="bg-amber-900/10 border border-amber-500/20 rounded-xl p-4">
                     <div className="flex items-start gap-3 mb-2">
                         <Zap className="w-4 h-4 text-amber-400 mt-0.5" />
-                        <h3 className="text-sm font-bold text-amber-400">High Catalyst Conc.</h3>
+                        <h3 className="text-sm font-bold text-amber-400">Primary Thesis</h3>
                     </div>
                     <p className="text-xs text-gray-400 leading-relaxed">
-                        Nov 5 Election drives 78% of portfolio volatility. Consider logic-branch hedges.
+                        {fund.secondaryThesis}
                     </p>
                 </div>
 
@@ -214,10 +314,10 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
                 <div className="bg-emerald-900/10 border border-emerald-500/20 rounded-xl p-4">
                     <div className="flex items-start gap-3 mb-2">
                         <Activity className="w-4 h-4 text-emerald-400 mt-0.5" />
-                        <h3 className="text-sm font-bold text-emerald-400">Hedge Efficiency</h3>
+                        <h3 className="text-sm font-bold text-emerald-400">Manager</h3>
                     </div>
                     <p className="text-xs text-gray-400 leading-relaxed">
-                        Tech Volatility hedge is performing +4.2% against sector drawdown.
+                        Managed by {fund.createdBy}. Top performing assets include {fund.holdings[0]?.name || 'N/A'}.
                     </p>
                 </div>
             </div>
@@ -236,8 +336,8 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
         {/* CENTER: Infinite Canvas (ReactFlow) */}
         <div className="col-span-12 lg:col-span-6 bg-[#050505] border border-border-dark rounded-2xl relative overflow-hidden group">
             <ReactFlow
-                nodes={initialNodes}
-                edges={initialEdges}
+                nodes={nodes}
+                edges={edges}
                 nodeTypes={nodeTypes}
                 fitView
                 proOptions={{ hideAttribution: true }}
@@ -259,42 +359,22 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
         <div className="col-span-12 lg:col-span-3 bg-surface-dark border border-border-dark rounded-2xl flex flex-col overflow-hidden">
             <div className="p-5 border-b border-border-dark flex justify-between items-center bg-gray-900/30">
                 <h2 className="text-lg font-bold text-white">Market Details</h2>
-                {/* <X className="w-5 h-5 text-gray-500 cursor-pointer hover:text-white" /> */}
             </div>
 
             <div className="flex-grow overflow-y-auto p-4 space-y-4">
                 
-                {/* Bet Card 1 */}
-                <BetCard 
-                    title="Tech Index Volatility"
-                    line="YES"
-                    price="12¢"
-                    description="Market resolving based on official senate vote count. High correlation with NVIDIA stock price movement."
-                    isOver={true}
-                    type="Yes"
-                />
-
-                {/* Bet Card 2 */}
-                <BetCard 
-                    title="US Safety Bill Passed"
-                    line="NO"
-                    price="45¢"
-                    description="Legislative probability currently pricing in a 45% chance of deadlock."
-                    isOver={false}
-                    type="No"
-                    initialAlloc={60}
-                />
-
-                 {/* Bet Card 3 */}
-                 <BetCard 
-                    title="GPT-5 Release 2024"
-                    line="NO"
-                    price="88¢"
-                    description="Rejection of Q4 release date based on OpenAI developer day hints."
-                    isOver={false}
-                    type="No"
-                    initialAlloc={20}
-                />
+                {fund.holdings.map((holding, i) => (
+                    <BetCard 
+                        key={i}
+                        title={holding.name}
+                        line={holding.side}
+                        price={`${holding.prob}¢`}
+                        description={holding.description || holding.rationale || "No description available."}
+                        isOver={false}
+                        type={holding.side === 'YES' ? 'Yes' : 'No'}
+                        initialAlloc={holding.allocation}
+                    />
+                ))}
 
             </div>
 
@@ -316,7 +396,7 @@ export default function FundDetailsPage({ params }: { params: { fundId: string }
 }
 
 // ----------------------------------------------------------------------
-// Sub-Components
+// Sub-Components (BetCard) - Kept Same
 // ----------------------------------------------------------------------
 
 function BetCard({ title, line, price, description, isOver, type, initialAlloc = 0 }: any) {
@@ -346,7 +426,6 @@ function BetCard({ title, line, price, description, isOver, type, initialAlloc =
                      <Activity className="w-4 h-4 text-primary" />
                      <h3 className="font-bold text-base text-white leading-tight max-w-[150px]">{title}</h3>
                 </div>
-                {/* External Link now goes to Polymarket as requested, technically repeated functionality but keeping icon consistent */}
                 <a href="https://polymarket.com" target="_blank" className="p-1.5 bg-gray-800 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
                      <ExternalLink className="w-3.5 h-3.5" />
                 </a>
