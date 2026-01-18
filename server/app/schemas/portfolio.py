@@ -20,6 +20,7 @@ class ResearchResult(BaseModel):
     risk_flags: List[str]
     evidence_items: List[dict]
     summary: str
+    thesis_discourse: Optional[str] = None # For in-depth PDF analysis
     needs_more_info: bool = False
     research_gaps: Optional[str] = None
 
@@ -58,4 +59,7 @@ class RebalanceResponse(BaseModel):
     recommendation: str
     plan: AllocationPlan
     research: ResearchResult
+    summary_markdown: Optional[str] = None
+    proposal_json: Optional[str] = None
+    report_pdf: Optional[str] = None
     agent_logs: List[dict] = []

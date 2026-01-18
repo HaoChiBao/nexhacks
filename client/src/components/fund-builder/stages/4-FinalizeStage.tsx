@@ -1,11 +1,27 @@
+import { useState } from "react";
 import { useFundBuilderStore } from "@/store/useFundBuilderStore";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, FileText, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { DocumentPreviewModal } from "../DocumentPreviewModal";
 
 export function FinalizeStage() {
   const { draft, updateDraft, setStage } = useFundBuilderStore();
   const router = useRouter();
+
+  const [previewDoc, setPreviewDoc] = useState<{
+    isOpen: boolean;
+    title: string;
+    content: string;
+    type: "markdown" | "json" | "pdf";
+    filename: string;
+  }>({
+    isOpen: false,
+    title: "",
+    content: "",
+    type: "markdown",
+    filename: "",
+  });
 
   const handlePublish = () => {
     // In a real app, this would save to DB.
@@ -18,8 +34,45 @@ export function FinalizeStage() {
     }, 1000);
   };
 
+  const openPreview = (type: "summary" | "allocation" | "pdf") => {
+    if (type === "summary") {
+      setPreviewDoc({
+        isOpen: true,
+        title: "Fund Research Summary",
+        content: draft.reportMarkdown || "No research summary generated.",
+        type: "markdown",
+        filename: `${draft.name.replace(/\s+/g, "_")}_Summary.md`
+      });
+    } else if (type === "pdf") {
+      setPreviewDoc({
+        isOpen: true,
+        title: "Scientific Research Report (PDF)",
+        content: draft.reportPdf || "",
+        type: "pdf",
+        filename: `${draft.name.replace(/\s+/g, "_")}_Report.pdf`
+      });
+    } else {
+      setPreviewDoc({
+        isOpen: true,
+        title: "Initial Allocation Proposal",
+        content: draft.proposalJson || "{}",
+        type: "json",
+        filename: `${draft.name.replace(/\s+/g, "_")}_Allocation.json`
+      });
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
+      <DocumentPreviewModal
+        isOpen={previewDoc.isOpen}
+        onClose={() => setPreviewDoc(s => ({ ...s, isOpen: false }))}
+        title={previewDoc.title}
+        content={previewDoc.content}
+        type={previewDoc.type}
+        filename={previewDoc.filename}
+      />
+
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Finalize Fund</h2>
         <p className="text-gray-400">Review your strategy and publish to the protocol.</p>
@@ -54,13 +107,20 @@ export function FinalizeStage() {
           <div className="w-16 h-16 rounded-full bg-emerald-900/20 flex items-center justify-center text-emerald-500 mb-2">
             <FileText className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-bold text-white">Generated Documentation</h3>
+          <h3 className="text-lg font-bold text-white">FanFunds Research Report</h3>
           <p className="text-sm text-gray-400 max-w-md">
-            The AI Agent has prepared the Fund Summary and Initial Allocation Proposal documents. These will be published on-chain with your fund.
+            Our AI Agent has prepared an in-depth behavioral analysis and fund research report.
+            This high-fidelity document will be anchored to your fund.
           </p>
           <div className="flex gap-4">
-            <Button variant="outline" className="text-xs border-gray-700">View Summary.pdf</Button>
-            <Button variant="outline" className="text-xs border-gray-700">View Allocation.json</Button>
+            <Button
+              variant="outline"
+              className="px-8 py-6 text-sm border-gray-700 bg-emerald-500/5 text-emerald-500 hover:bg-emerald-500 hover:text-black transition-all font-bold"
+              onClick={() => openPreview("pdf")}
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              View Research Report (PDF)
+            </Button>
           </div>
         </div>
       </div>

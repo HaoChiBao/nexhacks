@@ -50,6 +50,8 @@ async def run_rebalance(req: RebalanceRequest):
         "research_output": None,
         "allocation_plan": None,
         "recommendation_text": None,
+        "summary_markdown": None,
+        "proposal_json": None,
         "messages": []
     }
     
@@ -67,6 +69,9 @@ async def run_rebalance(req: RebalanceRequest):
                     recommendation=final_state["recommendation_text"],
                     plan=final_state["allocation_plan"],
                     research=final_state["research_output"],
+                    summary_markdown=final_state.get("summary_markdown"),
+                    proposal_json=final_state.get("proposal_json"),
+                    report_pdf=final_state.get("report_pdf"),
                     agent_logs=final_state.get("structured_logs", [])
                 )
                 await queue.put({"type": "result", "payload": result.model_dump()})

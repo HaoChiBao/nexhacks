@@ -135,7 +135,9 @@ export const useFundBuilderStore = create<FundBuilderState>()(
           updateDraft({
             holdings: holdings as any,
             name: topic,
-            reportMarkdown: data.recommendation
+            reportMarkdown: data.summary_markdown,
+            proposalJson: data.proposal_json,
+            reportPdf: data.report_pdf
           });
 
           addAgentEvent({

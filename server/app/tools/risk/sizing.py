@@ -124,28 +124,17 @@ def create_allocation_plan(
         # Pick top 1
         final_picks.append(group_list[0])
         
-    # Phase 3: Allocate (Confidence Weighted)
-    # Instead of equal weight, we scale weights by confidence
+    # Phase 3: Allocate (Confidence Weighted - No Cap)
+    # Positions are sized strictly proportional to their confidence, totaling 100% bankroll.
     total_confidence = sum(p["confidence"] for p in final_picks)
     if total_confidence <= 0:
         return AllocationPlan(targets=[], trades=[], warnings=["Total confidence was zero."])
 
-    # We want to fill up to bankroll, but respect max_position_pct
-    # Target total exposure (can be < 1.0 if few picks)
-    count = len(final_picks)
-    max_total_exposure = min(1.0, count * risk.max_position_pct)
-    
-    # Calculate raw weights based on confidence
-    for pick in final_picks:
-        # Normalized weight: (conf / total_conf) * max_total_exposure
-        raw_conf_weight = (pick["confidence"] / total_confidence) * max_total_exposure
-        # Apply per-position cap
-        pick["final_weight"] = min(raw_conf_weight, risk.max_position_pct)
-    
     # Final Pass to build plan
     for pick in final_picks:
         m = pick["market"]
-        weight = pick["final_weight"]
+        # Weight is strictly: (this confidence / sum of all confidences)
+        weight = pick["confidence"] / total_confidence
         target_usd = weight * bankroll
         
         targets.append(TargetAllocation(
@@ -167,7 +156,7 @@ def create_allocation_plan(
             outcome=pick["outcome"],
             side="BUY", 
             amount_usd=target_usd,
-            reason=f"Confidence-weighted allocation ({pick['confidence']}%)"
+            reason=f"Agent-determined weighting ({pick['confidence']}% relative confidence)"
         ))
         
         total_alloc_usd += target_usd
@@ -175,5 +164,5 @@ def create_allocation_plan(
     return AllocationPlan(
         targets=targets,
         trades=trades,
-        warnings=[f"Confidence-weighted allocation complete. Allocated ${total_alloc_usd:.2f} across {len(final_picks)} events."]
+        warnings=[f"Agent-driven allocation complete. Allocated 100% of bankroll (${total_alloc_usd:.2f}) across {len(final_picks)} events based on relative conviction."]
     )

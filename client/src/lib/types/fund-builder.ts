@@ -52,6 +52,8 @@ export interface FundDraft {
   holdings: Holding[];
   status: 'DRAFT' | 'PUBLISHED';
   reportMarkdown?: string;
+  proposalJson?: string;
+  reportPdf?: string;
 }
 
 export interface AgentEvent {

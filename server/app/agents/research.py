@@ -94,7 +94,8 @@ async def research_node(state: AgentState) -> AgentState:
     
     # 3. Synthesize with LLM
     summary_text = "Analysis pending..."
-    risk_flags = []
+    thesis_discourse = "Deep analysis pending..."
+    risk_flags = ["Analysis Incomplete"]
     
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
     
@@ -108,83 +109,57 @@ async def research_node(state: AgentState) -> AgentState:
     system_prompt = (
         "You are a senior financial analyst for a hedge fund. "
         "Conduct a deep-dive analysis of the provided news for the portfolio theme. "
-        "Your output must be structured as follows:\n"
-        "1. **Executive Summary**: High-level synthesis.\n"
-        "2. **Key Catalysts**: Specific events or drivers (mention dates/names).\n"
-        "3. **Risk Factors**: Critical headwinds or uncertainties.\n"
-        "4. **Sentiment Analysis**: Bullish/Bearish/Neutral with reasoning.\n\n"
-        "Be professional, concise, and citing specific details from the text where possible."
+        "Your output must be a valid JSON object with the following fields:\n"
+        '1. "summary": A concise (3-4 sentence) professional summary.\n'
+        '2. "thesis_discourse": A very deep, analytical, and structured discourse (800+ words). '
+        'Mirror scholarly "Chain of Thought" depth. Discuss nuances, direct vs indirect catalysts, '
+        "and long-tail risks with academic gravity. Use rich, precise language.\n"
+        '3. "risk_flags": A list of short strings (e.g. ["Market Volatility", "Policy Shift"]).\n'
+        '4. "keywords": Updated keywords based on findings.\n\n'
+        "IMPORTANT: Use PLAIN TEXT for JSON values. Do not use Markdown symbols like **bold** or # headings inside the JSON values. "
+        "The scientific PDF generator handles the styling."
     )
     
     try:
         if "placeholder" not in os.getenv("OPENAI_API_KEY", "placeholder"):
-           logger.think("Synthesizing context...")
+           logger.think("Synthesizing context & deep thinking...")
+           
+           from langchain_core.output_parsers import JsonOutputParser
+           parser = JsonOutputParser()
            
            msg = await llm.ainvoke([
                SystemMessage(content=system_prompt), 
                HumanMessage(content=f"Portfolio: {pf.name}\nDescription/Context: {pf.description}\nContext:\n{context}")
            ])
-           summary_text = msg.content
            
-           # 3b. Reflection & Loop (Max 1 retry)
-           reflection_prompt = (
-               "You are a research supervisor. Read the summary below and determine if there is CRITICAL missing information "
-               "needed to make an investment decision (e.g., missing specific dates, missing IPO valuation, missing election odds). "
-               "If yes, output 'MISSING: <search_query>'. If no, output 'SUFFICIENT'.\n"
-               f"Summary:\n{summary_text}"
-           )
-           reflection_msg = await llm.ainvoke([HumanMessage(content=reflection_prompt)])
-           reflection_content = reflection_msg.content.strip()
-           
-           if reflection_content.startswith("MISSING:"):
-                search_query = reflection_content.replace("MISSING:", "").strip()
-                logger.think(f"Researching gap: {search_query}")
-                logger.tool_call("Tavily Search (Follow-up)", search_query)
-                
-                # Search 2
-                new_results = await search_news(search_query)
-                for item in new_results[:2]: # Limit 2 for follow-up
-                    if item.get("url"):
-                        c = await extract_article_content(item["url"])
-                        if c:
-                            item["content"] = c
-                            evidence_items.append(item)
-                
-                # Re-Synthesize
-                context = ""
-                for item in evidence_items[:7]: # Top 7 now
-                    context += f"Source: {item.get('title', 'Unknown')}\n"
-                    context += f"URL: {item.get('url')}\n"
-                    context += f"Content: {item.get('content', item.get('content', 'No content'))[:500]}...\n\n"
-                
-                logger.think("Re-evaluating thesis with new data points...")
-                msg = await llm.ainvoke([
-                    SystemMessage(content=system_prompt), 
-                    HumanMessage(content=f"Portfolio: {pf.name}\nContext:\n{context}")
-                ])
-                summary_text = msg.content
-           else:
-               logger.think("Analysis complete.")
+           try:
+               parsed = parser.parse(msg.content)
+               summary_text = parsed.get("summary", "Summary generation failed.")
+               thesis_discourse = parsed.get("thesis_discourse", "Detailed analysis generation failed.")
+               risk_flags = parsed.get("risk_flags", ["High Volatility"])
+           except:
+               summary_text = msg.content
+               thesis_discourse = msg.content
+               risk_flags = ["Analysis Complete"]
 
         else:
-            summary_text = (
-                f"Found {len(evidence_items)} articles. "
-                "LLM synthesis skipped (API Key is placeholder). "
-                "Market sentiment appears mixed."
-            )
-            logger.info("Skipping LLM (No API Key)")
+            summary_text = f"Found {len(evidence_items)} articles. LLM synthesis skipped (No API Key)."
+            thesis_discourse = "Detailed analysis requires an active AI connection."
+            risk_flags = ["Simulation Mode"]
             
     except Exception as e:
         logger.error(f"LLM Error: {e}")
         summary_text = f"Error generating summary: {e}"
+        thesis_discourse = summary_text
 
     logger.end("Research phase complete.")
 
     result = ResearchResult(
         keywords=pf.keywords,
-        risk_flags=["High Volatility", "Regulatory Uncertainty"], 
+        risk_flags=risk_flags, 
         evidence_items=evidence_items,
         summary=summary_text,
+        thesis_discourse=thesis_discourse,
         needs_more_info=False 
     )
     
