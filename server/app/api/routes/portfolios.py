@@ -112,6 +112,37 @@ def invest_in_fund(req: InvestRequest):
                 "aum": new_aum
             }).eq("id", req.fund_id).execute()
         
+        # 6. Update/Insert into user_funds (Investment Tracking)
+        try:
+            # Check for existing investment record
+            uf_res = supabase.table("user_funds").select("*")\
+                .eq("user_id", req.user_id)\
+                .eq("fund_id", req.fund_id)\
+                .execute()
+                
+            if uf_res.data and len(uf_res.data) > 0:
+                # Update existing
+                existing_record = uf_res.data[0]
+                new_invested = float(existing_record.get("invested_amount", 0)) + req.amount
+                supabase.table("user_funds").update({
+                    "invested_amount": new_invested,
+                    "updated_at": "now()"
+                }).eq("id", existing_record["id"]).execute()
+            else:
+                # Insert new
+                supabase.table("user_funds").insert({
+                    "user_id": req.user_id,
+                    "fund_id": req.fund_id,
+                    "name": req.fund_name, 
+                    "invested_amount": req.amount,
+                    "is_public": True, # It's an investment in a public fund
+                    "allocation_plan": {} # Empty for pure investment
+                }).execute()
+                
+        except Exception as uf_error:
+            # Non-blocking error (e.g. if schema update hasn't been run yet)
+            print(f"Warning: Failed to update user_funds table: {uf_error}")
+
         return {"status": "success", "new_balance": new_balance, "portfolio": portfolio}
 
     except Exception as e:
