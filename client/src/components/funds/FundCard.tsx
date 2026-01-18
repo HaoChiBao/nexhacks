@@ -83,7 +83,7 @@ export function FundCard({ fund, index }: FundCardProps) {
                     textShadow: '0px 4px 4px rgba(255, 255, 255, 0.125)'
                 }}
              >
-                ${fund.metrics.aum}M
+                ${fund.metrics?.aum ?? 0}M
              </span>
         </div>
         
